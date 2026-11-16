@@ -1,6 +1,7 @@
 package serviceorder
 
 import (
+	"context"
 	"sort"
 
 	"github.com/gabrielcamargo/oficina-api/internal/domain/entity"
@@ -12,6 +13,7 @@ var activeListingStatuses = []valueobject.OrderStatus{
 	valueobject.OrderStatusReceived,
 	valueobject.OrderStatusInDiagnosis,
 	valueobject.OrderStatusWaitingApproval,
+	valueobject.OrderStatusWaitingPayment,
 	valueobject.OrderStatusInExecution,
 }
 
@@ -23,8 +25,8 @@ func NewListServiceOrdersUseCase(orderRepo repository.ServiceOrderRepository) *L
 	return &ListServiceOrdersUseCase{orderRepo: orderRepo}
 }
 
-func (u *ListServiceOrdersUseCase) Execute() ([]*entity.ServiceOrder, error) {
-	orders, err := u.orderRepo.FindByStatuses(activeListingStatuses)
+func (u *ListServiceOrdersUseCase) Execute(ctx context.Context) ([]*entity.ServiceOrder, error) {
+	orders, err := u.orderRepo.FindByStatuses(ctx, activeListingStatuses)
 	if err != nil {
 		return nil, err
 	}
@@ -33,15 +35,15 @@ func (u *ListServiceOrdersUseCase) Execute() ([]*entity.ServiceOrder, error) {
 	return orders, nil
 }
 
-func (u *ListServiceOrdersUseCase) ExecuteForCustomer(customerID string) ([]*entity.ServiceOrder, error) {
-	orders, err := u.orderRepo.FindByStatuses(activeListingStatuses)
+func (u *ListServiceOrdersUseCase) ExecuteForCustomer(ctx context.Context, customerID string) ([]*entity.ServiceOrder, error) {
+	orders, err := u.orderRepo.FindByStatuses(ctx, activeListingStatuses)
 	if err != nil {
 		return nil, err
 	}
 
 	owned := make([]*entity.ServiceOrder, 0, len(orders))
 	for _, order := range orders {
-		if order.CustomerID() == customerID {
+		if order.BelongsTo(customerID) {
 			owned = append(owned, order)
 		}
 	}

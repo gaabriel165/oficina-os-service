@@ -11,6 +11,11 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+func makeOrder() *entity.ServiceOrder {
+	order, _ := entity.NewServiceOrder("customer-1", "vehicle-1", "engine noise")
+	return order
+}
+
 func TestOrderStatusNotifier_ShouldNotifyCustomerEmail(t *testing.T) {
 	customerRepo := mocks.NewMockCustomerRepository(t)
 	notifications := mocks.NewMockNotificationService(t)

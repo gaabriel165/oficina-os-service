@@ -1,6 +1,8 @@
 package serviceorder
 
 import (
+	"context"
+
 	"github.com/gabrielcamargo/oficina-api/internal/domain/entity"
 	"github.com/gabrielcamargo/oficina-api/internal/domain/repository"
 )
@@ -14,8 +16,8 @@ func NewDeliverVehicleUseCase(orderRepo repository.ServiceOrderRepository, notif
 	return &DeliverVehicleUseCase{orderRepo: orderRepo, notifier: notifier}
 }
 
-func (u *DeliverVehicleUseCase) Execute(orderID string) (*entity.ServiceOrder, error) {
-	order, err := u.orderRepo.FindByID(orderID)
+func (u *DeliverVehicleUseCase) Execute(ctx context.Context, orderID string) (*entity.ServiceOrder, error) {
+	order, err := u.orderRepo.FindByID(ctx, orderID)
 	if err != nil {
 		return nil, err
 	}
@@ -24,7 +26,7 @@ func (u *DeliverVehicleUseCase) Execute(orderID string) (*entity.ServiceOrder, e
 		return nil, err
 	}
 
-	if err := u.orderRepo.Update(order); err != nil {
+	if err := u.orderRepo.Update(ctx, order); err != nil {
 		return nil, err
 	}
 
