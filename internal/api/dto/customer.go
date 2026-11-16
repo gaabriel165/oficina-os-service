@@ -48,3 +48,17 @@ func ToCustomerResponse(c *entity.Customer) CustomerResponse {
 		UpdatedAt:    c.UpdatedAt(),
 	}
 }
+
+type CustomerIdentityResponse struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Status string `json:"status"`
+}
+
+func ToCustomerIdentityResponse(c *entity.Customer) CustomerIdentityResponse {
+	return CustomerIdentityResponse{
+		ID:     c.ID(),
+		Name:   c.Name(),
+		Status: c.Status().String(),
+	}
+}

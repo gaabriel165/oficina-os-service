@@ -113,6 +113,10 @@ func (s *Server) registerRoutes() {
 		customer.NewListCustomersUseCase(customerRepo),
 	)
 
+	internalCustomerHandler := handler.NewInternalCustomerHandler(
+		customer.NewFindCustomerByDocumentUseCase(customerRepo),
+	)
+
 	vehicleHandler := handler.NewVehicleHandler(
 		vehicle.NewCreateVehicleUseCase(vehicleRepo, customerRepo),
 		vehicle.NewUpdateVehicleUseCase(vehicleRepo),
@@ -134,6 +138,9 @@ func (s *Server) registerRoutes() {
 	s.router.GET("/health", s.health)
 	s.router.GET("/ready", s.ready)
 	s.router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
+
+	internal := s.router.Group("/internal", middleware.InternalAuth(s.config.InternalAPISecret))
+	internalCustomerHandler.RegisterRoutes(internal)
 
 	v1 := s.router.Group("/api/v1")
 	authenticated := v1.Group("", middleware.Auth(s.config.JWTSecret))
