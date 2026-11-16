@@ -20,6 +20,7 @@ services:
     environment:
       <<: *local-aws
       OTEL_SERVICE_NAME: oficina-os-service
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-local-internal-secret}
       DATABASE_URL: postgres://postgres:postgres@os-postgres:5432/oficina_mecanica?sslmode=disable
       SAGA_STEP_TIMEOUT: ${SAGA_STEP_TIMEOUT:-72h}
     depends_on:

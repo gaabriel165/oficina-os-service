@@ -15,6 +15,7 @@ type Config struct {
 	ServiceName            string
 	DatabaseURL            string
 	JWTSecret              string
+	InternalAPISecret      string
 	AWSRegion              string
 	SQSEndpoint            string
 	SagaRepliesQueue       string
@@ -36,6 +37,7 @@ func Load() (*Config, error) {
 		ServiceName:            getEnv("OTEL_SERVICE_NAME", "oficina-api"),
 		DatabaseURL:            getEnv("DATABASE_URL", ""),
 		JWTSecret:              getEnv("JWT_SECRET", ""),
+		InternalAPISecret:      getEnv("INTERNAL_API_SECRET", ""),
 		AWSRegion:              getEnv("AWS_REGION", "us-east-1"),
 		SQSEndpoint:            getEnv("SQS_ENDPOINT", ""),
 		SagaRepliesQueue:       getEnv("SAGA_REPLIES_QUEUE", "oficina-saga-replies"),
