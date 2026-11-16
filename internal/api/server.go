@@ -12,10 +12,9 @@ import (
 	_ "github.com/gabrielcamargo/oficina-api/docs"
 	"github.com/gabrielcamargo/oficina-api/internal/api/handler"
 	"github.com/gabrielcamargo/oficina-api/internal/api/middleware"
+	"github.com/gabrielcamargo/oficina-api/internal/application/saga"
 	"github.com/gabrielcamargo/oficina-api/internal/application/usecase/auth"
 	"github.com/gabrielcamargo/oficina-api/internal/application/usecase/customer"
-	"github.com/gabrielcamargo/oficina-api/internal/application/usecase/part"
-	"github.com/gabrielcamargo/oficina-api/internal/application/usecase/service"
 	"github.com/gabrielcamargo/oficina-api/internal/application/usecase/serviceorder"
 	"github.com/gabrielcamargo/oficina-api/internal/application/usecase/vehicle"
 	"github.com/gabrielcamargo/oficina-api/internal/infrastructure/external"
@@ -29,10 +28,11 @@ import (
 )
 
 type Server struct {
-	router     *gin.Engine
-	config     *configs.Config
-	db         *gorm.DB
-	httpServer *http.Server
+	router       *gin.Engine
+	config       *configs.Config
+	db           *gorm.DB
+	orchestrator *saga.Orchestrator
+	httpServer   *http.Server
 }
 
 func NewServer(cfg *configs.Config, db *gorm.DB) *Server {
@@ -60,6 +60,10 @@ func NewServer(cfg *configs.Config, db *gorm.DB) *Server {
 	return server
 }
 
+func (s *Server) Handler() http.Handler {
+	return s.router
+}
+
 func (s *Server) Run() error {
 	if err := s.httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
@@ -79,16 +83,21 @@ func recoverWithLog(c *gin.Context, recovered any) {
 	c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 }
 
+func (s *Server) SagaOrchestrator() *saga.Orchestrator {
+	return s.orchestrator
+}
+
 func (s *Server) registerRoutes() {
 	userRepo := infrarepo.NewGormUserRepository(s.db)
 	customerRepo := infrarepo.NewGormCustomerRepository(s.db)
 	vehicleRepo := infrarepo.NewGormVehicleRepository(s.db)
-	partRepo := infrarepo.NewGormPartRepository(s.db)
-	serviceRepo := infrarepo.NewGormServiceRepository(s.db)
 	orderRepo := infrarepo.NewGormServiceOrderRepository(s.db)
+	sagaRepo := infrarepo.NewGormSagaRepository(s.db)
 	cnpjSvc := external.NewBrasilAPIClient()
 	emailNotifier := notification.NewResendNotifier(s.config.ResendAPIKey, s.config.EmailFrom)
 	statusNotifier := serviceorder.NewOrderStatusNotifier(customerRepo, emailNotifier)
+
+	s.orchestrator = saga.NewOrchestrator(sagaRepo, orderRepo, customerRepo, statusNotifier, s.config.SagaStepTimeout)
 
 	authHandler := handler.NewAuthHandler(
 		auth.NewCreateUserUseCase(userRepo),
@@ -112,36 +121,14 @@ func (s *Server) registerRoutes() {
 		vehicle.NewListVehiclesUseCase(vehicleRepo),
 	)
 
-	partHandler := handler.NewPartHandler(
-		part.NewCreatePartUseCase(partRepo),
-		part.NewUpdatePartUseCase(partRepo),
-		part.NewDeletePartUseCase(partRepo),
-		part.NewGetPartUseCase(partRepo),
-		part.NewListPartsUseCase(partRepo),
-		part.NewUpdateStockUseCase(partRepo),
-	)
-
-	serviceHandler := handler.NewServiceHandler(
-		service.NewCreateServiceUseCase(serviceRepo),
-		service.NewUpdateServiceUseCase(serviceRepo),
-		service.NewDeleteServiceUseCase(serviceRepo),
-		service.NewGetServiceUseCase(serviceRepo),
-		service.NewListServicesUseCase(serviceRepo),
-	)
-
 	orderHandler := handler.NewServiceOrderHandler(
-		serviceorder.NewCreateServiceOrderUseCase(orderRepo, customerRepo, vehicleRepo, serviceRepo, partRepo),
-		serviceorder.NewStartDiagnosisUseCase(orderRepo, statusNotifier),
-		serviceorder.NewAddServiceToOrderUseCase(orderRepo, serviceRepo),
-		serviceorder.NewAddPartToOrderUseCase(orderRepo, partRepo),
-		serviceorder.NewSendBudgetUseCase(orderRepo, statusNotifier),
-		serviceorder.NewApproveBudgetUseCase(orderRepo, partRepo, statusNotifier),
-		serviceorder.NewRejectBudgetUseCase(orderRepo, statusNotifier),
-		serviceorder.NewFinishExecutionUseCase(orderRepo, statusNotifier),
+		serviceorder.NewCreateServiceOrderUseCase(customerRepo, vehicleRepo, s.orchestrator),
+		serviceorder.NewCancelServiceOrderUseCase(s.orchestrator),
 		serviceorder.NewDeliverVehicleUseCase(orderRepo, statusNotifier),
 		serviceorder.NewGetServiceOrderUseCase(orderRepo),
 		serviceorder.NewListServiceOrdersUseCase(orderRepo),
-		serviceorder.NewGetExecutionMetricsUseCase(orderRepo),
+		serviceorder.NewGetServiceOrderHistoryUseCase(orderRepo),
+		serviceorder.NewGetServiceOrderSagaUseCase(orderRepo, sagaRepo),
 	)
 
 	s.router.GET("/health", s.health)
@@ -151,17 +138,13 @@ func (s *Server) registerRoutes() {
 	v1 := s.router.Group("/api/v1")
 	authenticated := v1.Group("", middleware.Auth(s.config.JWTSecret))
 	operators := authenticated.Group("", middleware.RequireRole(middleware.RoleOperator))
-	webhook := v1.Group("", middleware.WebhookAuth(s.config.WebhookSecret))
 
 	authHandler.RegisterRoutes(v1)
 	orderHandler.RegisterPublicRoutes(v1)
-	orderHandler.RegisterWebhookRoutes(webhook)
 	orderHandler.RegisterSharedRoutes(authenticated)
 	orderHandler.RegisterOperatorRoutes(operators)
 	customerHandler.RegisterRoutes(operators)
 	vehicleHandler.RegisterRoutes(operators)
-	partHandler.RegisterRoutes(operators)
-	serviceHandler.RegisterRoutes(operators)
 }
 
 func (s *Server) health(c *gin.Context) {

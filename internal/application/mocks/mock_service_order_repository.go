@@ -5,8 +5,9 @@
 package mocks
 
 import (
+	"context"
+
 	"github.com/gabrielcamargo/oficina-api/internal/domain/entity"
-	"github.com/gabrielcamargo/oficina-api/internal/domain/repository"
 	"github.com/gabrielcamargo/oficina-api/internal/domain/valueobject"
 	mock "github.com/stretchr/testify/mock"
 )
@@ -17,10 +18,19 @@ func NewMockServiceOrderRepository(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockServiceOrderRepository {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockServiceOrderRepository{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -38,174 +48,9 @@ func (_m *MockServiceOrderRepository) EXPECT() *MockServiceOrderRepository_Expec
 	return &MockServiceOrderRepository_Expecter{mock: &_m.Mock}
 }
 
-// GetExecutionMetrics provides a mock function for the type MockServiceOrderRepository
-func (_mock *MockServiceOrderRepository) GetExecutionMetrics() (*repository.ExecutionMetrics, error) {
-	ret := _mock.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetExecutionMetrics")
-	}
-
-	var r0 *repository.ExecutionMetrics
-	var r1 error
-	if returnFunc, ok := ret.Get(0).(func() (*repository.ExecutionMetrics, error)); ok {
-		return returnFunc()
-	}
-	if returnFunc, ok := ret.Get(0).(func() *repository.ExecutionMetrics); ok {
-		r0 = returnFunc()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*repository.ExecutionMetrics)
-		}
-	}
-	if returnFunc, ok := ret.Get(1).(func() error); ok {
-		r1 = returnFunc()
-	} else {
-		r1 = ret.Error(1)
-	}
-	return r0, r1
-}
-
-// MockServiceOrderRepository_GetExecutionMetrics_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetExecutionMetrics'
-type MockServiceOrderRepository_GetExecutionMetrics_Call struct {
-	*mock.Call
-}
-
-func (_e *MockServiceOrderRepository_Expecter) GetExecutionMetrics() *MockServiceOrderRepository_GetExecutionMetrics_Call {
-	return &MockServiceOrderRepository_GetExecutionMetrics_Call{Call: _e.mock.On("GetExecutionMetrics")}
-}
-
-func (_c *MockServiceOrderRepository_GetExecutionMetrics_Call) Run(run func()) *MockServiceOrderRepository_GetExecutionMetrics_Call {
-	_c.Call.Run(func(args mock.Arguments) { run() })
-	return _c
-}
-
-func (_c *MockServiceOrderRepository_GetExecutionMetrics_Call) Return(metrics *repository.ExecutionMetrics, err error) *MockServiceOrderRepository_GetExecutionMetrics_Call {
-	_c.Call.Return(metrics, err)
-	return _c
-}
-
-func (_c *MockServiceOrderRepository_GetExecutionMetrics_Call) RunAndReturn(run func() (*repository.ExecutionMetrics, error)) *MockServiceOrderRepository_GetExecutionMetrics_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// Create provides a mock function for the type MockServiceOrderRepository
-func (_mock *MockServiceOrderRepository) Create(order *entity.ServiceOrder) error {
-	ret := _mock.Called(order)
-
-	if len(ret) == 0 {
-		panic("no return value specified for Create")
-	}
-
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(*entity.ServiceOrder) error); ok {
-		r0 = returnFunc(order)
-	} else {
-		r0 = ret.Error(0)
-	}
-	return r0
-}
-
-// MockServiceOrderRepository_Create_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Create'
-type MockServiceOrderRepository_Create_Call struct {
-	*mock.Call
-}
-
-// Create is a helper method to define mock.On call
-//   - order *entity.ServiceOrder
-func (_e *MockServiceOrderRepository_Expecter) Create(order interface{}) *MockServiceOrderRepository_Create_Call {
-	return &MockServiceOrderRepository_Create_Call{Call: _e.mock.On("Create", order)}
-}
-
-func (_c *MockServiceOrderRepository_Create_Call) Run(run func(order *entity.ServiceOrder)) *MockServiceOrderRepository_Create_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 *entity.ServiceOrder
-		if args[0] != nil {
-			arg0 = args[0].(*entity.ServiceOrder)
-		}
-		run(
-			arg0,
-		)
-	})
-	return _c
-}
-
-func (_c *MockServiceOrderRepository_Create_Call) Return(err error) *MockServiceOrderRepository_Create_Call {
-	_c.Call.Return(err)
-	return _c
-}
-
-func (_c *MockServiceOrderRepository_Create_Call) RunAndReturn(run func(order *entity.ServiceOrder) error) *MockServiceOrderRepository_Create_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// FindByStatuses provides a mock function for the type MockServiceOrderRepository
-func (_mock *MockServiceOrderRepository) FindByStatuses(statuses []valueobject.OrderStatus) ([]*entity.ServiceOrder, error) {
-	ret := _mock.Called(statuses)
-
-	if len(ret) == 0 {
-		panic("no return value specified for FindByStatuses")
-	}
-
-	var r0 []*entity.ServiceOrder
-	var r1 error
-	if returnFunc, ok := ret.Get(0).(func([]valueobject.OrderStatus) ([]*entity.ServiceOrder, error)); ok {
-		return returnFunc(statuses)
-	}
-	if returnFunc, ok := ret.Get(0).(func([]valueobject.OrderStatus) []*entity.ServiceOrder); ok {
-		r0 = returnFunc(statuses)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*entity.ServiceOrder)
-		}
-	}
-	if returnFunc, ok := ret.Get(1).(func([]valueobject.OrderStatus) error); ok {
-		r1 = returnFunc(statuses)
-	} else {
-		r1 = ret.Error(1)
-	}
-	return r0, r1
-}
-
-// MockServiceOrderRepository_FindByStatuses_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FindByStatuses'
-type MockServiceOrderRepository_FindByStatuses_Call struct {
-	*mock.Call
-}
-
-// FindByStatuses is a helper method to define mock.On call
-//   - statuses []valueobject.OrderStatus
-func (_e *MockServiceOrderRepository_Expecter) FindByStatuses(statuses interface{}) *MockServiceOrderRepository_FindByStatuses_Call {
-	return &MockServiceOrderRepository_FindByStatuses_Call{Call: _e.mock.On("FindByStatuses", statuses)}
-}
-
-func (_c *MockServiceOrderRepository_FindByStatuses_Call) Run(run func(statuses []valueobject.OrderStatus)) *MockServiceOrderRepository_FindByStatuses_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 []valueobject.OrderStatus
-		if args[0] != nil {
-			arg0 = args[0].([]valueobject.OrderStatus)
-		}
-		run(
-			arg0,
-		)
-	})
-	return _c
-}
-
-func (_c *MockServiceOrderRepository_FindByStatuses_Call) Return(serviceOrders []*entity.ServiceOrder, err error) *MockServiceOrderRepository_FindByStatuses_Call {
-	_c.Call.Return(serviceOrders, err)
-	return _c
-}
-
-func (_c *MockServiceOrderRepository_FindByStatuses_Call) RunAndReturn(run func(statuses []valueobject.OrderStatus) ([]*entity.ServiceOrder, error)) *MockServiceOrderRepository_FindByStatuses_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // FindByID provides a mock function for the type MockServiceOrderRepository
-func (_mock *MockServiceOrderRepository) FindByID(id string) (*entity.ServiceOrder, error) {
-	ret := _mock.Called(id)
+func (_mock *MockServiceOrderRepository) FindByID(ctx context.Context, id string) (*entity.ServiceOrder, error) {
+	ret := _mock.Called(ctx, id)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindByID")
@@ -213,18 +58,18 @@ func (_mock *MockServiceOrderRepository) FindByID(id string) (*entity.ServiceOrd
 
 	var r0 *entity.ServiceOrder
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(string) (*entity.ServiceOrder, error)); ok {
-		return returnFunc(id)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (*entity.ServiceOrder, error)); ok {
+		return returnFunc(ctx, id)
 	}
-	if returnFunc, ok := ret.Get(0).(func(string) *entity.ServiceOrder); ok {
-		r0 = returnFunc(id)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) *entity.ServiceOrder); ok {
+		r0 = returnFunc(ctx, id)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*entity.ServiceOrder)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(string) error); ok {
-		r1 = returnFunc(id)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = returnFunc(ctx, id)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -237,19 +82,25 @@ type MockServiceOrderRepository_FindByID_Call struct {
 }
 
 // FindByID is a helper method to define mock.On call
+//   - ctx context.Context
 //   - id string
-func (_e *MockServiceOrderRepository_Expecter) FindByID(id interface{}) *MockServiceOrderRepository_FindByID_Call {
-	return &MockServiceOrderRepository_FindByID_Call{Call: _e.mock.On("FindByID", id)}
+func (_e *MockServiceOrderRepository_Expecter) FindByID(ctx any, id any) *MockServiceOrderRepository_FindByID_Call {
+	return &MockServiceOrderRepository_FindByID_Call{Call: _e.mock.On("FindByID", ctx, id)}
 }
 
-func (_c *MockServiceOrderRepository_FindByID_Call) Run(run func(id string)) *MockServiceOrderRepository_FindByID_Call {
+func (_c *MockServiceOrderRepository_FindByID_Call) Run(run func(ctx context.Context, id string)) *MockServiceOrderRepository_FindByID_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 string
+		var arg0 context.Context
 		if args[0] != nil {
-			arg0 = args[0].(string)
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
 		}
 		run(
 			arg0,
+			arg1,
 		)
 	})
 	return _c
@@ -260,22 +111,158 @@ func (_c *MockServiceOrderRepository_FindByID_Call) Return(serviceOrder *entity.
 	return _c
 }
 
-func (_c *MockServiceOrderRepository_FindByID_Call) RunAndReturn(run func(id string) (*entity.ServiceOrder, error)) *MockServiceOrderRepository_FindByID_Call {
+func (_c *MockServiceOrderRepository_FindByID_Call) RunAndReturn(run func(ctx context.Context, id string) (*entity.ServiceOrder, error)) *MockServiceOrderRepository_FindByID_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// FindByStatuses provides a mock function for the type MockServiceOrderRepository
+func (_mock *MockServiceOrderRepository) FindByStatuses(ctx context.Context, statuses []valueobject.OrderStatus) ([]*entity.ServiceOrder, error) {
+	ret := _mock.Called(ctx, statuses)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FindByStatuses")
+	}
+
+	var r0 []*entity.ServiceOrder
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, []valueobject.OrderStatus) ([]*entity.ServiceOrder, error)); ok {
+		return returnFunc(ctx, statuses)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, []valueobject.OrderStatus) []*entity.ServiceOrder); ok {
+		r0 = returnFunc(ctx, statuses)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*entity.ServiceOrder)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, []valueobject.OrderStatus) error); ok {
+		r1 = returnFunc(ctx, statuses)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockServiceOrderRepository_FindByStatuses_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FindByStatuses'
+type MockServiceOrderRepository_FindByStatuses_Call struct {
+	*mock.Call
+}
+
+// FindByStatuses is a helper method to define mock.On call
+//   - ctx context.Context
+//   - statuses []valueobject.OrderStatus
+func (_e *MockServiceOrderRepository_Expecter) FindByStatuses(ctx any, statuses any) *MockServiceOrderRepository_FindByStatuses_Call {
+	return &MockServiceOrderRepository_FindByStatuses_Call{Call: _e.mock.On("FindByStatuses", ctx, statuses)}
+}
+
+func (_c *MockServiceOrderRepository_FindByStatuses_Call) Run(run func(ctx context.Context, statuses []valueobject.OrderStatus)) *MockServiceOrderRepository_FindByStatuses_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 []valueobject.OrderStatus
+		if args[1] != nil {
+			arg1 = args[1].([]valueobject.OrderStatus)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockServiceOrderRepository_FindByStatuses_Call) Return(serviceOrders []*entity.ServiceOrder, err error) *MockServiceOrderRepository_FindByStatuses_Call {
+	_c.Call.Return(serviceOrders, err)
+	return _c
+}
+
+func (_c *MockServiceOrderRepository_FindByStatuses_Call) RunAndReturn(run func(ctx context.Context, statuses []valueobject.OrderStatus) ([]*entity.ServiceOrder, error)) *MockServiceOrderRepository_FindByStatuses_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// FindHistory provides a mock function for the type MockServiceOrderRepository
+func (_mock *MockServiceOrderRepository) FindHistory(ctx context.Context, orderID string) ([]entity.StatusChange, error) {
+	ret := _mock.Called(ctx, orderID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FindHistory")
+	}
+
+	var r0 []entity.StatusChange
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) ([]entity.StatusChange, error)); ok {
+		return returnFunc(ctx, orderID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) []entity.StatusChange); ok {
+		r0 = returnFunc(ctx, orderID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]entity.StatusChange)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = returnFunc(ctx, orderID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockServiceOrderRepository_FindHistory_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FindHistory'
+type MockServiceOrderRepository_FindHistory_Call struct {
+	*mock.Call
+}
+
+// FindHistory is a helper method to define mock.On call
+//   - ctx context.Context
+//   - orderID string
+func (_e *MockServiceOrderRepository_Expecter) FindHistory(ctx any, orderID any) *MockServiceOrderRepository_FindHistory_Call {
+	return &MockServiceOrderRepository_FindHistory_Call{Call: _e.mock.On("FindHistory", ctx, orderID)}
+}
+
+func (_c *MockServiceOrderRepository_FindHistory_Call) Run(run func(ctx context.Context, orderID string)) *MockServiceOrderRepository_FindHistory_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockServiceOrderRepository_FindHistory_Call) Return(statusChanges []entity.StatusChange, err error) *MockServiceOrderRepository_FindHistory_Call {
+	_c.Call.Return(statusChanges, err)
+	return _c
+}
+
+func (_c *MockServiceOrderRepository_FindHistory_Call) RunAndReturn(run func(ctx context.Context, orderID string) ([]entity.StatusChange, error)) *MockServiceOrderRepository_FindHistory_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // Update provides a mock function for the type MockServiceOrderRepository
-func (_mock *MockServiceOrderRepository) Update(order *entity.ServiceOrder) error {
-	ret := _mock.Called(order)
+func (_mock *MockServiceOrderRepository) Update(ctx context.Context, order *entity.ServiceOrder) error {
+	ret := _mock.Called(ctx, order)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Update")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(*entity.ServiceOrder) error); ok {
-		r0 = returnFunc(order)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *entity.ServiceOrder) error); ok {
+		r0 = returnFunc(ctx, order)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -288,19 +275,25 @@ type MockServiceOrderRepository_Update_Call struct {
 }
 
 // Update is a helper method to define mock.On call
+//   - ctx context.Context
 //   - order *entity.ServiceOrder
-func (_e *MockServiceOrderRepository_Expecter) Update(order interface{}) *MockServiceOrderRepository_Update_Call {
-	return &MockServiceOrderRepository_Update_Call{Call: _e.mock.On("Update", order)}
+func (_e *MockServiceOrderRepository_Expecter) Update(ctx any, order any) *MockServiceOrderRepository_Update_Call {
+	return &MockServiceOrderRepository_Update_Call{Call: _e.mock.On("Update", ctx, order)}
 }
 
-func (_c *MockServiceOrderRepository_Update_Call) Run(run func(order *entity.ServiceOrder)) *MockServiceOrderRepository_Update_Call {
+func (_c *MockServiceOrderRepository_Update_Call) Run(run func(ctx context.Context, order *entity.ServiceOrder)) *MockServiceOrderRepository_Update_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 *entity.ServiceOrder
+		var arg0 context.Context
 		if args[0] != nil {
-			arg0 = args[0].(*entity.ServiceOrder)
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *entity.ServiceOrder
+		if args[1] != nil {
+			arg1 = args[1].(*entity.ServiceOrder)
 		}
 		run(
 			arg0,
+			arg1,
 		)
 	})
 	return _c
@@ -311,7 +304,7 @@ func (_c *MockServiceOrderRepository_Update_Call) Return(err error) *MockService
 	return _c
 }
 
-func (_c *MockServiceOrderRepository_Update_Call) RunAndReturn(run func(order *entity.ServiceOrder) error) *MockServiceOrderRepository_Update_Call {
+func (_c *MockServiceOrderRepository_Update_Call) RunAndReturn(run func(ctx context.Context, order *entity.ServiceOrder) error) *MockServiceOrderRepository_Update_Call {
 	_c.Call.Return(run)
 	return _c
 }

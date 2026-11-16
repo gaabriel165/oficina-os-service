@@ -15,10 +15,19 @@ func NewMockNotificationService(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockNotificationService {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockNotificationService{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -61,7 +70,7 @@ type MockNotificationService_NotifyOrderStatusChanged_Call struct {
 // NotifyOrderStatusChanged is a helper method to define mock.On call
 //   - customer *entity.Customer
 //   - order *entity.ServiceOrder
-func (_e *MockNotificationService_Expecter) NotifyOrderStatusChanged(customer interface{}, order interface{}) *MockNotificationService_NotifyOrderStatusChanged_Call {
+func (_e *MockNotificationService_Expecter) NotifyOrderStatusChanged(customer any, order any) *MockNotificationService_NotifyOrderStatusChanged_Call {
 	return &MockNotificationService_NotifyOrderStatusChanged_Call{Call: _e.mock.On("NotifyOrderStatusChanged", customer, order)}
 }
 

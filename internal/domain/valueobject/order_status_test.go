@@ -14,8 +14,11 @@ func TestOrderStatus_ShouldAllowValidTransitions(t *testing.T) {
 	}{
 		{valueobject.OrderStatusReceived, valueobject.OrderStatusInDiagnosis},
 		{valueobject.OrderStatusInDiagnosis, valueobject.OrderStatusWaitingApproval},
-		{valueobject.OrderStatusWaitingApproval, valueobject.OrderStatusInExecution},
+		{valueobject.OrderStatusWaitingApproval, valueobject.OrderStatusWaitingPayment},
+		{valueobject.OrderStatusWaitingPayment, valueobject.OrderStatusInExecution},
 		{valueobject.OrderStatusWaitingApproval, valueobject.OrderStatusCancelled},
+		{valueobject.OrderStatusInExecution, valueobject.OrderStatusCancelled},
+		{valueobject.OrderStatusReceived, valueobject.OrderStatusWaitingApproval},
 		{valueobject.OrderStatusInExecution, valueobject.OrderStatusFinished},
 		{valueobject.OrderStatusFinished, valueobject.OrderStatusDelivered},
 	}
@@ -26,7 +29,8 @@ func TestOrderStatus_ShouldAllowValidTransitions(t *testing.T) {
 }
 
 func TestOrderStatus_ShouldRankListingPriorityByUrgency(t *testing.T) {
-	assert.Less(t, valueobject.OrderStatusInExecution.ListingPriority(), valueobject.OrderStatusWaitingApproval.ListingPriority())
+	assert.Less(t, valueobject.OrderStatusInExecution.ListingPriority(), valueobject.OrderStatusWaitingPayment.ListingPriority())
+	assert.Less(t, valueobject.OrderStatusWaitingPayment.ListingPriority(), valueobject.OrderStatusWaitingApproval.ListingPriority())
 	assert.Less(t, valueobject.OrderStatusWaitingApproval.ListingPriority(), valueobject.OrderStatusInDiagnosis.ListingPriority())
 	assert.Less(t, valueobject.OrderStatusInDiagnosis.ListingPriority(), valueobject.OrderStatusReceived.ListingPriority())
 }
@@ -36,7 +40,8 @@ func TestOrderStatus_ShouldDenyInvalidTransitions(t *testing.T) {
 		from valueobject.OrderStatus
 		to   valueobject.OrderStatus
 	}{
-		{valueobject.OrderStatusReceived, valueobject.OrderStatusInExecution},
+		{valueobject.OrderStatusInExecution, valueobject.OrderStatusReceived},
+		{valueobject.OrderStatusWaitingPayment, valueobject.OrderStatusWaitingApproval},
 		{valueobject.OrderStatusReceived, valueobject.OrderStatusDelivered},
 		{valueobject.OrderStatusInDiagnosis, valueobject.OrderStatusDelivered},
 		{valueobject.OrderStatusDelivered, valueobject.OrderStatusReceived},

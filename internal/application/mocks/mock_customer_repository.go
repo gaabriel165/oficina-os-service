@@ -15,10 +15,19 @@ func NewMockCustomerRepository(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockCustomerRepository {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockCustomerRepository{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -60,7 +69,7 @@ type MockCustomerRepository_Create_Call struct {
 
 // Create is a helper method to define mock.On call
 //   - customer *entity.Customer
-func (_e *MockCustomerRepository_Expecter) Create(customer interface{}) *MockCustomerRepository_Create_Call {
+func (_e *MockCustomerRepository_Expecter) Create(customer any) *MockCustomerRepository_Create_Call {
 	return &MockCustomerRepository_Create_Call{Call: _e.mock.On("Create", customer)}
 }
 
@@ -111,7 +120,7 @@ type MockCustomerRepository_Delete_Call struct {
 
 // Delete is a helper method to define mock.On call
 //   - id string
-func (_e *MockCustomerRepository_Expecter) Delete(id interface{}) *MockCustomerRepository_Delete_Call {
+func (_e *MockCustomerRepository_Expecter) Delete(id any) *MockCustomerRepository_Delete_Call {
 	return &MockCustomerRepository_Delete_Call{Call: _e.mock.On("Delete", id)}
 }
 
@@ -228,7 +237,7 @@ type MockCustomerRepository_FindByDocument_Call struct {
 
 // FindByDocument is a helper method to define mock.On call
 //   - document string
-func (_e *MockCustomerRepository_Expecter) FindByDocument(document interface{}) *MockCustomerRepository_FindByDocument_Call {
+func (_e *MockCustomerRepository_Expecter) FindByDocument(document any) *MockCustomerRepository_FindByDocument_Call {
 	return &MockCustomerRepository_FindByDocument_Call{Call: _e.mock.On("FindByDocument", document)}
 }
 
@@ -290,7 +299,7 @@ type MockCustomerRepository_FindByID_Call struct {
 
 // FindByID is a helper method to define mock.On call
 //   - id string
-func (_e *MockCustomerRepository_Expecter) FindByID(id interface{}) *MockCustomerRepository_FindByID_Call {
+func (_e *MockCustomerRepository_Expecter) FindByID(id any) *MockCustomerRepository_FindByID_Call {
 	return &MockCustomerRepository_FindByID_Call{Call: _e.mock.On("FindByID", id)}
 }
 
@@ -341,7 +350,7 @@ type MockCustomerRepository_Update_Call struct {
 
 // Update is a helper method to define mock.On call
 //   - customer *entity.Customer
-func (_e *MockCustomerRepository_Expecter) Update(customer interface{}) *MockCustomerRepository_Update_Call {
+func (_e *MockCustomerRepository_Expecter) Update(customer any) *MockCustomerRepository_Update_Call {
 	return &MockCustomerRepository_Update_Call{Call: _e.mock.On("Update", customer)}
 }
 

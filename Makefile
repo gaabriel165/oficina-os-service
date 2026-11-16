@@ -1,4 +1,4 @@
-.PHONY: run build test test/unit test/integration test/coverage lint swagger mocks up down logs
+.PHONY: run build test test/unit test/integration test/coverage lint swagger mocks up down logs system/up system/down system/logs
 
 run:
 	go run ./cmd/api/main.go
@@ -36,3 +36,12 @@ down:
 
 logs:
 	docker-compose logs -f api
+
+system/up:
+	docker-compose -f docker-compose.system.yml up --build -d
+
+system/down:
+	docker-compose -f docker-compose.system.yml down -v
+
+system/logs:
+	docker-compose -f docker-compose.system.yml logs -f os-service billing-service execution-service

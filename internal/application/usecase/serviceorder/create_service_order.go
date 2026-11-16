@@ -1,48 +1,37 @@
 package serviceorder
 
 import (
+	"context"
+
 	"github.com/gabrielcamargo/oficina-api/internal/domain/entity"
 	"github.com/gabrielcamargo/oficina-api/internal/domain/repository"
 )
 
-type CreateServiceOrderPartInput struct {
-	PartID   string
-	Quantity int
+type SagaStarter interface {
+	Start(ctx context.Context, order *entity.ServiceOrder) (*entity.Saga, error)
 }
 
 type CreateServiceOrderInput struct {
 	CustomerID string
 	VehicleID  string
 	Notes      string
-	Services   []string
-	Parts      []CreateServiceOrderPartInput
 }
 
 type CreateServiceOrderUseCase struct {
-	orderRepo    repository.ServiceOrderRepository
 	customerRepo repository.CustomerRepository
 	vehicleRepo  repository.VehicleRepository
-	serviceRepo  repository.ServiceRepository
-	partRepo     repository.PartRepository
+	saga         SagaStarter
 }
 
 func NewCreateServiceOrderUseCase(
-	orderRepo repository.ServiceOrderRepository,
 	customerRepo repository.CustomerRepository,
 	vehicleRepo repository.VehicleRepository,
-	serviceRepo repository.ServiceRepository,
-	partRepo repository.PartRepository,
+	saga SagaStarter,
 ) *CreateServiceOrderUseCase {
-	return &CreateServiceOrderUseCase{
-		orderRepo:    orderRepo,
-		customerRepo: customerRepo,
-		vehicleRepo:  vehicleRepo,
-		serviceRepo:  serviceRepo,
-		partRepo:     partRepo,
-	}
+	return &CreateServiceOrderUseCase{customerRepo: customerRepo, vehicleRepo: vehicleRepo, saga: saga}
 }
 
-func (u *CreateServiceOrderUseCase) Execute(input CreateServiceOrderInput) (*entity.ServiceOrder, error) {
+func (u *CreateServiceOrderUseCase) Execute(ctx context.Context, input CreateServiceOrderInput) (*entity.ServiceOrder, error) {
 	if _, err := u.customerRepo.FindByID(input.CustomerID); err != nil {
 		return nil, err
 	}
@@ -61,30 +50,7 @@ func (u *CreateServiceOrderUseCase) Execute(input CreateServiceOrderInput) (*ent
 		return nil, err
 	}
 
-	for _, serviceID := range input.Services {
-		service, err := u.serviceRepo.FindByID(serviceID)
-		if err != nil {
-			return nil, err
-		}
-		order.AddItem(service)
-	}
-
-	for _, partInput := range input.Parts {
-		part, err := u.partRepo.FindByID(partInput.PartID)
-		if err != nil {
-			return nil, err
-		}
-
-		if !part.HasSufficientStock(partInput.Quantity) {
-			return nil, entity.ErrPartInsufficientStock
-		}
-
-		if err := order.AddPart(part, partInput.Quantity); err != nil {
-			return nil, err
-		}
-	}
-
-	if err := u.orderRepo.Create(order); err != nil {
+	if _, err := u.saga.Start(ctx, order); err != nil {
 		return nil, err
 	}
 

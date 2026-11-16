@@ -15,10 +15,19 @@ func NewMockVehicleRepository(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockVehicleRepository {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockVehicleRepository{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -60,7 +69,7 @@ type MockVehicleRepository_Create_Call struct {
 
 // Create is a helper method to define mock.On call
 //   - vehicle *entity.Vehicle
-func (_e *MockVehicleRepository_Expecter) Create(vehicle interface{}) *MockVehicleRepository_Create_Call {
+func (_e *MockVehicleRepository_Expecter) Create(vehicle any) *MockVehicleRepository_Create_Call {
 	return &MockVehicleRepository_Create_Call{Call: _e.mock.On("Create", vehicle)}
 }
 
@@ -111,7 +120,7 @@ type MockVehicleRepository_Delete_Call struct {
 
 // Delete is a helper method to define mock.On call
 //   - id string
-func (_e *MockVehicleRepository_Expecter) Delete(id interface{}) *MockVehicleRepository_Delete_Call {
+func (_e *MockVehicleRepository_Expecter) Delete(id any) *MockVehicleRepository_Delete_Call {
 	return &MockVehicleRepository_Delete_Call{Call: _e.mock.On("Delete", id)}
 }
 
@@ -228,7 +237,7 @@ type MockVehicleRepository_FindByCustomerID_Call struct {
 
 // FindByCustomerID is a helper method to define mock.On call
 //   - customerID string
-func (_e *MockVehicleRepository_Expecter) FindByCustomerID(customerID interface{}) *MockVehicleRepository_FindByCustomerID_Call {
+func (_e *MockVehicleRepository_Expecter) FindByCustomerID(customerID any) *MockVehicleRepository_FindByCustomerID_Call {
 	return &MockVehicleRepository_FindByCustomerID_Call{Call: _e.mock.On("FindByCustomerID", customerID)}
 }
 
@@ -290,7 +299,7 @@ type MockVehicleRepository_FindByID_Call struct {
 
 // FindByID is a helper method to define mock.On call
 //   - id string
-func (_e *MockVehicleRepository_Expecter) FindByID(id interface{}) *MockVehicleRepository_FindByID_Call {
+func (_e *MockVehicleRepository_Expecter) FindByID(id any) *MockVehicleRepository_FindByID_Call {
 	return &MockVehicleRepository_FindByID_Call{Call: _e.mock.On("FindByID", id)}
 }
 
@@ -352,7 +361,7 @@ type MockVehicleRepository_FindByPlate_Call struct {
 
 // FindByPlate is a helper method to define mock.On call
 //   - plate string
-func (_e *MockVehicleRepository_Expecter) FindByPlate(plate interface{}) *MockVehicleRepository_FindByPlate_Call {
+func (_e *MockVehicleRepository_Expecter) FindByPlate(plate any) *MockVehicleRepository_FindByPlate_Call {
 	return &MockVehicleRepository_FindByPlate_Call{Call: _e.mock.On("FindByPlate", plate)}
 }
 
@@ -403,7 +412,7 @@ type MockVehicleRepository_Update_Call struct {
 
 // Update is a helper method to define mock.On call
 //   - vehicle *entity.Vehicle
-func (_e *MockVehicleRepository_Expecter) Update(vehicle interface{}) *MockVehicleRepository_Update_Call {
+func (_e *MockVehicleRepository_Expecter) Update(vehicle any) *MockVehicleRepository_Update_Call {
 	return &MockVehicleRepository_Update_Call{Call: _e.mock.On("Update", vehicle)}
 }
 

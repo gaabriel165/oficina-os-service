@@ -32,96 +32,38 @@ func TestRestoreVehicle_ShouldRestoreAllFields(t *testing.T) {
 	assert.Equal(t, now, v.UpdatedAt())
 }
 
-func TestRestorePart_ShouldRestoreAllFields(t *testing.T) {
-	now := time.Now()
-	p := entity.RestorePart("id-1", "Filtro", "Filtro de óleo", 29.90, 10, now, now)
-
-	assert.Equal(t, "id-1", p.ID())
-	assert.Equal(t, "Filtro de óleo", p.Description())
-	assert.Equal(t, now, p.CreatedAt())
-	assert.Equal(t, now, p.UpdatedAt())
-}
-
-func TestRestoreService_ShouldRestoreAllFields(t *testing.T) {
-	now := time.Now()
-	s := entity.RestoreService("id-1", "Troca de Óleo", "Inclui filtro", 120.00, 60, now, now)
-
-	assert.Equal(t, "id-1", s.ID())
-	assert.Equal(t, "Inclui filtro", s.Description())
-	assert.Equal(t, now, s.CreatedAt())
-	assert.Equal(t, now, s.UpdatedAt())
-}
-
 func TestRestoreServiceOrder_ShouldRestoreAllFields(t *testing.T) {
 	now := time.Now()
-	o := entity.RestoreServiceOrder(
-		"id-1", "cust-1", "veh-1",
-		valueobject.OrderStatusReceived,
-		"observações",
-		0,
-		nil, nil,
-		nil, nil,
-		now, now,
-	)
+	order := entity.RestoreServiceOrder(entity.ServiceOrderSnapshot{
+		ID:                 "order-1",
+		CustomerID:         "cust-1",
+		VehicleID:          "veh-1",
+		Status:             valueobject.OrderStatusWaitingPayment,
+		Notes:              "engine noise",
+		TotalAmount:        179.80,
+		BudgetID:           "budget-1",
+		PaymentID:          "payment-1",
+		CheckoutURL:        "https://pay.example/checkout",
+		CancellationReason: "",
+		StartedAt:          &now,
+		FinishedAt:         &now,
+		CreatedAt:          now,
+		UpdatedAt:          now,
+	})
 
-	assert.Equal(t, "id-1", o.ID())
-	assert.Equal(t, "cust-1", o.CustomerID())
-	assert.Equal(t, "veh-1", o.VehicleID())
-	assert.Equal(t, "observações", o.Notes())
-	assert.Equal(t, now, o.CreatedAt())
-	assert.Equal(t, now, o.UpdatedAt())
-}
-
-func TestRestoreServiceOrderItem_ShouldRestoreAllFields(t *testing.T) {
-	item := entity.RestoreServiceOrderItem("id-1", "order-1", "svc-1", "Troca de Óleo", 120.00)
-
-	assert.Equal(t, "id-1", item.ID())
-	assert.Equal(t, "order-1", item.ServiceOrderID())
-	assert.Equal(t, "svc-1", item.ServiceID())
-	assert.Equal(t, "Troca de Óleo", item.ServiceName())
-	assert.Equal(t, 120.00, item.LaborPrice())
-}
-
-func TestRestoreServiceOrderPart_ShouldRestoreAllFields(t *testing.T) {
-	part := entity.RestoreServiceOrderPart("id-1", "order-1", "part-1", "Filtro", 2, 29.90)
-
-	assert.Equal(t, "id-1", part.ID())
-	assert.Equal(t, "order-1", part.ServiceOrderID())
-	assert.Equal(t, "part-1", part.PartID())
-	assert.Equal(t, "Filtro", part.PartName())
-	assert.Equal(t, 2, part.Quantity())
-	assert.Equal(t, 29.90, part.UnitPrice())
-	assert.Equal(t, 59.80, part.TotalPrice())
-}
-
-func TestNewUser_ShouldCreateSuccessfully(t *testing.T) {
-	u, err := entity.NewUser("admin@test.com", "hashed_password")
-
-	assert.NoError(t, err)
-	assert.NotEmpty(t, u.ID())
-	assert.Equal(t, "admin@test.com", u.Email())
-	assert.Equal(t, "hashed_password", u.PasswordHash())
-	assert.False(t, u.CreatedAt().IsZero())
-	assert.False(t, u.UpdatedAt().IsZero())
-}
-
-func TestNewUser_ShouldReturnErrorWhenEmailEmpty(t *testing.T) {
-	_, err := entity.NewUser("", "hashed_password")
-	assert.ErrorIs(t, err, entity.ErrUserEmailRequired)
-}
-
-func TestNewUser_ShouldReturnErrorWhenPasswordEmpty(t *testing.T) {
-	_, err := entity.NewUser("admin@test.com", "")
-	assert.ErrorIs(t, err, entity.ErrUserPasswordRequired)
-}
-
-func TestRestoreUser_ShouldRestoreAllFields(t *testing.T) {
-	now := time.Now()
-	u := entity.RestoreUser("id-1", "admin@test.com", "hashed_password", now, now)
-
-	assert.Equal(t, "id-1", u.ID())
-	assert.Equal(t, "admin@test.com", u.Email())
-	assert.Equal(t, "hashed_password", u.PasswordHash())
-	assert.Equal(t, now, u.CreatedAt())
-	assert.Equal(t, now, u.UpdatedAt())
+	assert.Equal(t, "order-1", order.ID())
+	assert.Equal(t, "cust-1", order.CustomerID())
+	assert.Equal(t, "veh-1", order.VehicleID())
+	assert.Equal(t, valueobject.OrderStatusWaitingPayment, order.Status())
+	assert.Equal(t, "engine noise", order.Notes())
+	assert.Equal(t, 179.80, order.TotalAmount())
+	assert.Equal(t, "budget-1", order.BudgetID())
+	assert.Equal(t, "payment-1", order.PaymentID())
+	assert.Equal(t, "https://pay.example/checkout", order.CheckoutURL())
+	assert.Equal(t, &now, order.StartedAt())
+	assert.Equal(t, &now, order.FinishedAt())
+	assert.Equal(t, now, order.CreatedAt())
+	assert.Equal(t, now, order.UpdatedAt())
+	assert.Empty(t, order.PendingHistory())
+	assert.Nil(t, order.LastTransition())
 }
