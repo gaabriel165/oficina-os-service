@@ -28,10 +28,9 @@ func statusFromError(err error) int {
 	notFound := []error{
 		repository.ErrCustomerNotFound,
 		repository.ErrVehicleNotFound,
-		repository.ErrPartNotFound,
-		repository.ErrServiceNotFound,
 		repository.ErrServiceOrderNotFound,
 		repository.ErrUserNotFound,
+		repository.ErrSagaNotFound,
 	}
 	for _, e := range notFound {
 		if errors.Is(err, e) {
@@ -43,6 +42,7 @@ func statusFromError(err error) int {
 		usecase.ErrDocumentAlreadyRegistered,
 		usecase.ErrPlateAlreadyRegistered,
 		usecase.ErrEmailAlreadyRegistered,
+		repository.ErrSagaConflict,
 	}
 	for _, e := range conflict {
 		if errors.Is(err, e) {
@@ -59,19 +59,12 @@ func statusFromError(err error) int {
 		entity.ErrVehicleModelRequired,
 		entity.ErrVehicleInvalidYear,
 		entity.ErrVehicleCustomerRequired,
-		entity.ErrPartNameRequired,
-		entity.ErrPartInvalidPrice,
-		entity.ErrPartInvalidStock,
-		entity.ErrPartInsufficientStock,
-		entity.ErrServiceNameRequired,
-		entity.ErrServiceInvalidLaborPrice,
-		entity.ErrServiceInvalidEstimatedMin,
 		entity.ErrServiceOrderCustomerRequired,
 		entity.ErrServiceOrderVehicleRequired,
 		entity.ErrServiceOrderVehicleNotOwnedByCustomer,
 		entity.ErrServiceOrderInvalidTransition,
-		entity.ErrServiceOrderNoItems,
-		entity.ErrServiceOrderItemInvalidQty,
+		entity.ErrServiceOrderCancellationReasonRequired,
+		entity.ErrSagaNotRunning,
 		usecase.ErrCNPJNotActive,
 		valueobject.ErrInvalidCPF,
 		valueobject.ErrInvalidCNPJ,

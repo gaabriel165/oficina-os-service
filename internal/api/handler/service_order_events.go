@@ -27,8 +27,6 @@ func respondCreatedOrder(c *gin.Context, order *entity.ServiceOrder, err error) 
 		slog.String("order_id", order.ID()),
 		slog.String("customer_id", order.CustomerID()),
 		slog.String("vehicle_id", order.VehicleID()),
-		slog.Int("services", len(order.Items())),
-		slog.Int("parts", len(order.Parts())),
 	)
 	c.JSON(http.StatusCreated, dto.ToServiceOrderResponse(order))
 }

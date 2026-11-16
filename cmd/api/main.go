@@ -13,13 +13,19 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
 	"github.com/gabrielcamargo/oficina-api/configs"
 	"github.com/gabrielcamargo/oficina-api/internal/api"
+	"github.com/gabrielcamargo/oficina-api/internal/application/outbox"
+	"github.com/gabrielcamargo/oficina-api/internal/application/saga"
+	domainmessaging "github.com/gabrielcamargo/oficina-api/internal/domain/messaging"
 	"github.com/gabrielcamargo/oficina-api/internal/infrastructure/database"
+	"github.com/gabrielcamargo/oficina-api/internal/infrastructure/messaging"
 	"github.com/gabrielcamargo/oficina-api/internal/infrastructure/observability"
+	infrarepo "github.com/gabrielcamargo/oficina-api/internal/infrastructure/repository"
 )
 
 func main() {
@@ -56,7 +62,37 @@ func main() {
 		os.Exit(1)
 	}
 
+	queueClient, err := messaging.NewSQSClient(ctx, cfg.AWSRegion, cfg.SQSEndpoint)
+	if err != nil {
+		logger.Error("failed to configure messaging", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
 	server := api.NewServer(cfg, db)
+
+	publisher := messaging.NewSQSPublisher(queueClient, map[domainmessaging.Destination]string{
+		domainmessaging.DestinationBillingCommands:   cfg.BillingCommandsQueue,
+		domainmessaging.DestinationExecutionCommands: cfg.ExecutionCommandsQueue,
+	})
+	consumer := messaging.NewSQSConsumer(queueClient, cfg.SagaRepliesQueue, server.SagaOrchestrator().Handle,
+		infrarepo.NewGormProcessedMessageRepository(db))
+	relay := outbox.NewRelay(infrarepo.NewGormOutboxRepository(db), publisher)
+	timeoutMonitor := saga.NewTimeoutMonitor(server.SagaOrchestrator())
+
+	var workers sync.WaitGroup
+	workers.Add(3)
+	go func() {
+		defer workers.Done()
+		consumer.Run(ctx)
+	}()
+	go func() {
+		defer workers.Done()
+		relay.Run(ctx)
+	}()
+	go func() {
+		defer workers.Done()
+		timeoutMonitor.Run(ctx)
+	}()
 
 	go func() {
 		logger.Info("server.started",
@@ -78,6 +114,7 @@ func main() {
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		logger.Error("failed to shut down server gracefully", slog.String("error", err.Error()))
 	}
+	workers.Wait()
 	if err := shutdownTracing(shutdownCtx); err != nil {
 		logger.Error("failed to flush traces", slog.String("error", err.Error()))
 	}
