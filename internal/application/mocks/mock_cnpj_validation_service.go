@@ -15,10 +15,19 @@ func NewMockCNPJValidationService(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockCNPJValidationService {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockCNPJValidationService{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -71,7 +80,7 @@ type MockCNPJValidationService_Fetch_Call struct {
 
 // Fetch is a helper method to define mock.On call
 //   - cnpj string
-func (_e *MockCNPJValidationService_Expecter) Fetch(cnpj interface{}) *MockCNPJValidationService_Fetch_Call {
+func (_e *MockCNPJValidationService_Expecter) Fetch(cnpj any) *MockCNPJValidationService_Fetch_Call {
 	return &MockCNPJValidationService_Fetch_Call{Call: _e.mock.On("Fetch", cnpj)}
 }
 

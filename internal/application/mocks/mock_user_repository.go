@@ -15,10 +15,19 @@ func NewMockUserRepository(t interface {
 	mock.TestingT
 	Cleanup(func())
 }) *MockUserRepository {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
 	mock := &MockUserRepository{}
 	mock.Mock.Test(t)
 
-	t.Cleanup(func() { mock.AssertExpectations(t) })
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
 
 	return mock
 }
@@ -60,7 +69,7 @@ type MockUserRepository_Create_Call struct {
 
 // Create is a helper method to define mock.On call
 //   - user *entity.User
-func (_e *MockUserRepository_Expecter) Create(user interface{}) *MockUserRepository_Create_Call {
+func (_e *MockUserRepository_Expecter) Create(user any) *MockUserRepository_Create_Call {
 	return &MockUserRepository_Create_Call{Call: _e.mock.On("Create", user)}
 }
 
@@ -122,7 +131,7 @@ type MockUserRepository_FindByEmail_Call struct {
 
 // FindByEmail is a helper method to define mock.On call
 //   - email string
-func (_e *MockUserRepository_Expecter) FindByEmail(email interface{}) *MockUserRepository_FindByEmail_Call {
+func (_e *MockUserRepository_Expecter) FindByEmail(email any) *MockUserRepository_FindByEmail_Call {
 	return &MockUserRepository_FindByEmail_Call{Call: _e.mock.On("FindByEmail", email)}
 }
 

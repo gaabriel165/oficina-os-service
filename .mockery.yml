@@ -7,3 +7,6 @@ packages:
   github.com/gabrielcamargo/oficina-api/internal/domain/repository:
     config:
       all: true
+  github.com/gabrielcamargo/oficina-api/internal/domain/messaging:
+    config:
+      all: true

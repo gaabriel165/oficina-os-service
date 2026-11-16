@@ -10,37 +10,49 @@ const (
 	OrderStatusReceived        OrderStatus = "received"
 	OrderStatusInDiagnosis     OrderStatus = "in_diagnosis"
 	OrderStatusWaitingApproval OrderStatus = "waiting_approval"
+	OrderStatusWaitingPayment  OrderStatus = "waiting_payment"
 	OrderStatusInExecution     OrderStatus = "in_execution"
 	OrderStatusFinished        OrderStatus = "finished"
 	OrderStatusDelivered       OrderStatus = "delivered"
 	OrderStatusCancelled       OrderStatus = "cancelled"
 )
 
-var allowedTransitions = map[OrderStatus][]OrderStatus{
-	OrderStatusReceived:        {OrderStatusInDiagnosis},
-	OrderStatusInDiagnosis:     {OrderStatusWaitingApproval},
-	OrderStatusWaitingApproval: {OrderStatusInExecution, OrderStatusCancelled},
-	OrderStatusInExecution:     {OrderStatusFinished},
-	OrderStatusFinished:        {OrderStatusDelivered},
-	OrderStatusDelivered:       {},
-	OrderStatusCancelled:       {},
+var progressOrder = map[OrderStatus]int{
+	OrderStatusReceived:        1,
+	OrderStatusInDiagnosis:     2,
+	OrderStatusWaitingApproval: 3,
+	OrderStatusWaitingPayment:  4,
+	OrderStatusInExecution:     5,
+	OrderStatusFinished:        6,
+	OrderStatusDelivered:       7,
 }
 
 var listingPriority = map[OrderStatus]int{
 	OrderStatusInExecution:     1,
-	OrderStatusWaitingApproval: 2,
-	OrderStatusInDiagnosis:     3,
-	OrderStatusReceived:        4,
+	OrderStatusWaitingPayment:  2,
+	OrderStatusWaitingApproval: 3,
+	OrderStatusInDiagnosis:     4,
+	OrderStatusReceived:        5,
+}
+
+func (s OrderStatus) IsBefore(next OrderStatus) bool {
+	current, currentKnown := progressOrder[s]
+	target, targetKnown := progressOrder[next]
+	return currentKnown && targetKnown && current < target
+}
+
+func (s OrderStatus) CanBeCancelled() bool {
+	return s.IsBefore(OrderStatusFinished)
 }
 
 func (s OrderStatus) CanTransitionTo(next OrderStatus) bool {
-	allowed := allowedTransitions[s]
-	for _, status := range allowed {
-		if status == next {
-			return true
-		}
+	if next == OrderStatusCancelled {
+		return s.CanBeCancelled()
 	}
-	return false
+	if next == OrderStatusDelivered {
+		return s == OrderStatusFinished
+	}
+	return s.IsBefore(next) && next != OrderStatusDelivered
 }
 
 func (s OrderStatus) ListingPriority() int {
