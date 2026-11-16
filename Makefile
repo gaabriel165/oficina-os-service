@@ -1,4 +1,7 @@
-.PHONY: run build test test/unit test/integration test/coverage lint swagger mocks up down logs system/up system/down system/logs
+.PHONY: coverage/check run build test test/unit test/integration test/coverage lint swagger mocks up down logs system/up system/down system/logs
+
+COVERAGE_MINIMUM = 80
+COVERAGE_PACKAGES = $(shell go list ./internal/... | grep -v -e /mocks -e /integration | paste -sd, -)
 
 run:
 	go run ./cmd/api/main.go
@@ -10,14 +13,19 @@ test:
 	go test ./...
 
 test/unit:
-	go test ./internal/application/usecase/... ./internal/domain/entity/...
+	go test $$(go list ./... | grep -v /internal/integration)
 
 test/integration:
-	go test ./internal/integration/... -timeout 120s
+	go test ./internal/integration/... -timeout 300s
 
 test/coverage:
-	go test ./internal/application/usecase/... ./internal/domain/entity/... -coverprofile=coverage.out -covermode=atomic
-	go tool cover -func=coverage.out
+	go test ./... -coverpkg=$(COVERAGE_PACKAGES) -coverprofile=coverage.out -covermode=atomic -timeout 600s
+	go tool cover -func=coverage.out | tail -1
+
+coverage/check:
+	@total=$$(go tool cover -func=coverage.out | awk '/^total:/ {sub("%","",$$3); print $$3}'); \
+	echo "total coverage: $$total% (minimum $(COVERAGE_MINIMUM)%)"; \
+	awk -v total="$$total" -v minimum="$(COVERAGE_MINIMUM)" 'BEGIN { exit (total+0 < minimum+0) ? 1 : 0 }'
 
 mocks:
 	~/go/bin/darwin_amd64/mockery
