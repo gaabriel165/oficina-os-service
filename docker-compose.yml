@@ -8,6 +8,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      elasticmq:
+        condition: service_started
     restart: unless-stopped
 
   postgres:
@@ -25,6 +27,14 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  elasticmq:
+    image: softwaremill/elasticmq-native:1.7.1
+    ports:
+      - "9324:9324"
+      - "9325:9325"
+    volumes:
+      - ./local/elasticmq.conf:/opt/elasticmq.conf:ro
 
 volumes:
   postgres_data:
