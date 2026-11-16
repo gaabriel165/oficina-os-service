@@ -2,53 +2,61 @@ name: CD
 
 on:
   push:
-    branches: ["main", "homolog"]
+    branches: ["main"]
   workflow_dispatch:
+    inputs:
+      action:
+        description: "deploy or destroy"
+        required: true
+        default: "deploy"
+        type: choice
+        options: ["deploy", "destroy"]
 
 permissions:
   id-token: write
   contents: read
 
 concurrency:
-  group: cd-${{ github.ref_name }}
+  group: cd-os
   cancel-in-progress: false
 
 env:
   AWS_REGION: ${{ vars.AWS_REGION }}
-  ECR_REPOSITORY_URL: ${{ vars.ECR_REPOSITORY_URL }}
   EKS_CLUSTER_NAME: ${{ vars.EKS_CLUSTER_NAME }}
-  SSM_PREFIX: /oficina-api
+  SERVICE_NAME: oficina-api
+  NAMESPACE: oficina-api
+  TF_IN_AUTOMATION: "true"
 
 jobs:
   deploy:
+    if: github.event_name == 'push' || inputs.action == 'deploy'
     runs-on: ubuntu-latest
-    environment: ${{ github.ref_name == 'main' && 'production' || 'homolog' }}
+    environment: production
     steps:
       - uses: actions/checkout@v4
 
-      - name: Resolve target environment
-        id: target
-        run: |
-          if [ "${GITHUB_REF_NAME}" = "main" ]; then
-            echo "overlay=prod" >> "$GITHUB_OUTPUT"
-            echo "namespace=oficina-api" >> "$GITHUB_OUTPUT"
-          else
-            echo "overlay=homolog" >> "$GITHUB_OUTPUT"
-            echo "namespace=oficina-api-homolog" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
+        with:
+          terraform_wrapper: false
+
+      - name: Provision the service infrastructure
+        run: |
+          terraform -chdir=terraform init -input=false
+          terraform -chdir=terraform apply -auto-approve -input=false
+
       - name: Login to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@v2
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd
 
       - name: Build and push image
         env:
-          IMAGE: ${{ env.ECR_REPOSITORY_URL }}:${{ github.sha }}
+          IMAGE: ${{ steps.ecr.outputs.registry }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
         run: |
           docker build -t "$IMAGE" .
           docker push "$IMAGE"
@@ -56,40 +64,36 @@ jobs:
       - name: Update kubeconfig
         run: aws eks update-kubeconfig --name "$EKS_CLUSTER_NAME" --region "$AWS_REGION"
 
-      - name: Create namespace and application secret from SSM
+      - name: Create namespace and application secret
         env:
-          NAMESPACE: ${{ steps.target.outputs.namespace }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           NEW_RELIC_LICENSE_KEY: ${{ secrets.NEW_RELIC_LICENSE_KEY }}
         run: |
-          DATABASE_URL="$(aws ssm get-parameter --name "$SSM_PREFIX/database_url" --with-decryption --query Parameter.Value --output text)"
-          JWT_SECRET="$(aws ssm get-parameter --name "$SSM_PREFIX/jwt_secret" --with-decryption --query Parameter.Value --output text)"
-          WEBHOOK_SECRET="$(aws ssm get-parameter --name "$SSM_PREFIX/webhook_secret" --with-decryption --query Parameter.Value --output text)"
+          DATABASE_URL="$(aws ssm get-parameter --name "/oficina-api/database_url" --with-decryption --query Parameter.Value --output text)"
+          JWT_SECRET="$(aws ssm get-parameter --name "/oficina-api/jwt_secret" --with-decryption --query Parameter.Value --output text)"
+          INTERNAL_API_SECRET="$(aws ssm get-parameter --name "/oficina-api/internal_api_secret" --with-decryption --query Parameter.Value --output text)"
 
           kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
-          kubectl create secret generic oficina-api-secrets \
+          kubectl create secret generic "$SERVICE_NAME-secrets" \
             --namespace "$NAMESPACE" \
             --from-literal=DATABASE_URL="$DATABASE_URL" \
             --from-literal=JWT_SECRET="$JWT_SECRET" \
-            --from-literal=WEBHOOK_SECRET="$WEBHOOK_SECRET" \
+            --from-literal=INTERNAL_API_SECRET="$INTERNAL_API_SECRET" \
             --from-literal=RESEND_API_KEY="$RESEND_API_KEY" \
             --from-literal=OTEL_EXPORTER_OTLP_HEADERS="api-key=$NEW_RELIC_LICENSE_KEY" \
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Deploy to EKS
         env:
-          OVERLAY: ${{ steps.target.outputs.overlay }}
-          NAMESPACE: ${{ steps.target.outputs.namespace }}
+          IMAGE_REPOSITORY: ${{ steps.ecr.outputs.registry }}/${{ env.SERVICE_NAME }}
         run: |
           cd k8s/base
-          kustomize edit set image "oficina-api=$ECR_REPOSITORY_URL:${GITHUB_SHA}"
+          kustomize edit set image "$SERVICE_NAME=$IMAGE_REPOSITORY:${GITHUB_SHA}"
           cd ../..
-          kubectl apply -k "k8s/overlays/$OVERLAY"
-          kubectl rollout status deployment/oficina-api --namespace "$NAMESPACE" --timeout=300s
+          kubectl apply -k k8s/overlays/prod
+          kubectl rollout status "deployment/$SERVICE_NAME" --namespace "$NAMESPACE" --timeout=300s
 
       - name: Summary
-        env:
-          NAMESPACE: ${{ steps.target.outputs.namespace }}
         run: |
           {
             echo "### Deployed \`${GITHUB_SHA::7}\` to \`$NAMESPACE\`"
@@ -98,3 +102,30 @@ jobs:
             kubectl get deploy,hpa,svc -n "$NAMESPACE"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  destroy:
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'destroy'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
+        with:
+          terraform_wrapper: false
+
+      - name: Remove the workload and its load balancer
+        run: |
+          aws eks update-kubeconfig --name "$EKS_CLUSTER_NAME" --region "$AWS_REGION"
+          kubectl delete namespace "$NAMESPACE" --ignore-not-found --timeout=300s
+
+      - name: Destroy the service infrastructure
+        run: |
+          terraform -chdir=terraform init -input=false
+          terraform -chdir=terraform destroy -auto-approve -input=false

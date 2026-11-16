@@ -41,9 +41,15 @@ jobs:
           args: -Dsonar.qualitygate.wait=true
 
       - name: Validate Kubernetes manifests
+        run: kubectl kustomize k8s/overlays/prod > /dev/null
+
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
+
+      - name: Validate Terraform
         run: |
-          kubectl kustomize k8s/overlays/prod > /dev/null
-          kubectl kustomize k8s/overlays/homolog > /dev/null
+          terraform -chdir=terraform fmt -check -recursive
+          terraform -chdir=terraform init -backend=false -input=false
+          terraform -chdir=terraform validate
 
       - name: Build Docker image
         run: docker build -t oficina-api:ci .

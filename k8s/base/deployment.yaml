@@ -14,7 +14,8 @@ spec:
       labels:
         app: oficina-api
     spec:
-      terminationGracePeriodSeconds: 20
+      serviceAccountName: oficina-api
+      terminationGracePeriodSeconds: 30
       containers:
         - name: api
           image: oficina-api
