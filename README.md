@@ -1,273 +1,277 @@
-# Tech Challenge — Oficina Mecânica API
+# Tech Challenge — Oficina Mecânica · OS Service
 
-[![CI](https://github.com/gaabriel165/oficina-api/actions/workflows/ci.yml/badge.svg)](https://github.com/gaabriel165/oficina-api/actions/workflows/ci.yml)
-[![CD](https://github.com/gaabriel165/oficina-api/actions/workflows/cd.yml/badge.svg)](https://github.com/gaabriel165/oficina-api/actions/workflows/cd.yml)
+[![CI](https://github.com/gaabriel165/oficina-os-service/actions/workflows/ci.yml/badge.svg)](https://github.com/gaabriel165/oficina-os-service/actions/workflows/ci.yml)
+[![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=gaabriel165_oficina-os-service&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=gaabriel165_oficina-os-service)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=gaabriel165_oficina-os-service&metric=coverage)](https://sonarcloud.io/summary/new_code?id=gaabriel165_oficina-os-service)
 
-Back-end do **Sistema Integrado de Atendimento e Execução de Serviços** de uma oficina mecânica, desenvolvido para o Tech Challenge da pós-graduação em Arquitetura de Software (FIAP SOAT).
+Microsserviço de **ordens de serviço** do Sistema Integrado de Atendimento e Execução de Serviços de uma oficina mecânica, desenvolvido para o Tech Challenge da pós-graduação em Arquitetura de Software (FIAP SOAT). Cuida de clientes, veículos e ordens de serviço e é o **orquestrador da saga** que leva uma ordem do diagnóstico à entrega, passando pelos microsserviços de faturamento e de execução.
 
-- **Fase 1** — MVP com gestão de ordens de serviço, clientes, veículos, peças e serviços, aplicando DDD, JWT e testes.
-- **Fase 2** — Clean Architecture, containerização, Kubernetes (EKS), Terraform e CI/CD.
-- **Fase 3** — operação corporativa: **API Gateway** como porta única, **autenticação de clientes por CPF via Lambda**, quatro repositórios com **CI/CD e deploy automático** (homologação e produção), **observabilidade com New Relic** (traces, logs JSON correlacionados, dashboards e alertas) e **documentação arquitetural** completa (componentes, sequências, RFCs, ADRs, ER).
+- **Fase 1** — MVP com DDD, JWT e testes.
+- **Fase 2** — Clean Architecture, Kubernetes (EKS), Terraform e CI/CD.
+- **Fase 3** — API Gateway, autenticação por CPF em Lambda, observabilidade com New Relic e documentação arquitetural.
+- **Fase 4** — o monólito foi dividido em **três microsserviços**, cada um com repositório, banco e pipeline próprios, comunicando-se por REST e por mensageria, com **Saga orquestrada**, pagamento pelo **Mercado Pago**, testes com cobertura mínima de 80%, BDD e análise de qualidade no CI.
 
-## Os quatro repositórios
+## Repositórios do projeto
 
-| Repositório | Responsabilidade | Entrega |
+| Repositório | Papel | Banco |
 |---|---|---|
-| **[oficina-api](https://github.com/gaabriel165/oficina-api)** (este) | Aplicação principal em Go, Clean Architecture | Imagem no ECR e deploy no EKS via kustomize — branch `homolog` → namespace `oficina-api-homolog`, `main` → `oficina-api` |
-| [oficina-infra-k8s](https://github.com/gaabriel165/oficina-infra-k8s) | Infraestrutura Kubernetes (Terraform) | VPC, EKS 1.34, ECR, OIDC + roles do GitHub Actions, segredos no SSM, metrics-server e New Relic via Helm |
-| [oficina-infra-db](https://github.com/gaabriel165/oficina-infra-db) | Banco gerenciado (Terraform) | RDS PostgreSQL 16 privado, security groups, `DATABASE_URL` no SSM |
-| [oficina-lambda-auth](https://github.com/gaabriel165/oficina-lambda-auth) | Function serverless + API Gateway (Go + Terraform) | Lambda `auth-cpf` (valida CPF, consulta cliente, emite JWT), Lambda `authorizer`, API Gateway HTTP API |
-
-Ordem de provisionamento: `oficina-infra-k8s` → `oficina-infra-db` → `oficina-api` (CD) → `oficina-lambda-auth`. Destruição na ordem inversa.
+| **[oficina-os-service](https://github.com/gaabriel165/oficina-os-service)** (este) | Ordens de serviço, clientes, veículos e orquestração da saga | PostgreSQL (RDS) |
+| [oficina-billing-service](https://github.com/gaabriel165/oficina-billing-service) | Orçamento e pagamento (Mercado Pago) | PostgreSQL (RDS próprio) |
+| [oficina-execution-service](https://github.com/gaabriel165/oficina-execution-service) | Diagnóstico, execução, catálogo e estoque | DynamoDB |
+| [oficina-lambda-auth](https://github.com/gaabriel165/oficina-lambda-auth) | Autenticação por CPF e API Gateway | — |
+| [oficina-infra-k8s](https://github.com/gaabriel165/oficina-infra-k8s) | VPC, EKS, ECR, roles de deploy e segredos compartilhados | — |
+| [oficina-infra-db](https://github.com/gaabriel165/oficina-infra-db) | RDS do OS Service | — |
 
 ## Links
 
-- **Documentação de arquitetura (Fase 3):** [`docs/architecture/`](./docs/architecture/README.md) — [componentes](./docs/architecture/components.md) · [sequência: autenticação](./docs/architecture/sequence-authentication.md) · [sequência: ordem de serviço](./docs/architecture/sequence-service-order.md) · [banco de dados e ER](./docs/architecture/database.md) · [RFCs](./docs/architecture/rfc/) · [ADRs](./docs/architecture/adr/)
-- **Swagger (com o ambiente no ar):** `https://<api-id>.execute-api.us-east-1.amazonaws.com/swagger/index.html` (via API Gateway) ou `http://<nlb-host>/swagger/index.html`
+- **Documentação de arquitetura:** [`docs/architecture/`](./docs/architecture/README.md) — [componentes](./docs/architecture/components.md) · [contratos de mensagens](./docs/architecture/messaging-contracts.md) · [sequência da saga](./docs/architecture/sequence-service-order.md) · [autenticação](./docs/architecture/sequence-authentication.md) · [banco de dados](./docs/architecture/database.md) · [RFCs](./docs/architecture/rfc/) · [ADRs](./docs/architecture/adr/)
+- **Swagger:** `/swagger/index.html` em cada serviço (OS `8080`, Billing `8081`, Execution `8082` na execução local)
 - **Collection das APIs (Insomnia):** [`insomnia-collection.json`](./insomnia-collection.json)
-- **Documentação DDD (Event Storming, Fase 1):** [miro.com/app/board/uXjVHZWTzN0=/](https://miro.com/app/board/uXjVHZWTzN0=/)
-- **Vídeo Fase 2:** https://youtu.be/KcicodFkWag · **Vídeo Fase 3:** https://youtu.be/UpkiPBkgyVE
+- **Cenários em BDD:** [`saga_ordem_de_servico.feature`](./internal/integration/features/saga_ordem_de_servico.feature)
+- **Vídeos:** [Fase 2](https://youtu.be/KcicodFkWag) · [Fase 3](https://youtu.be/UpkiPBkgyVE)
 
-> O ambiente AWS é **provisionado sob demanda** (custo por hora) e destruído após cada sessão de testes. Os links de deploy podem estar fora do ar no momento da avaliação; o vídeo demonstra o pipeline e o ambiente em execução.
+> O ambiente AWS é provisionado sob demanda e destruído após cada sessão de testes, para não gerar custo. Os endereços de produção podem estar fora do ar no momento da avaliação; o vídeo mostra os pipelines e o ambiente em execução.
 
 ---
 
 ## Arquitetura
 
-### 1. Visão de nuvem (Fase 3)
+### Visão geral
 
 ```mermaid
 flowchart LR
-    Customer["Cliente - CPF"]
-    Operator["Operador"]
+    Customer["Cliente"]
+    Operator["Operador / mecânico"]
+    MP["Mercado Pago"]
 
     subgraph AWS["AWS us-east-1"]
-        APIGW["API Gateway HTTP API"]
+        APIGW["API Gateway"]
         LambdaAuth["Lambda auth-cpf"]
         LambdaAuthz["Lambda authorizer"]
-        SSM[("SSM Parameter Store")]
-        ECR[("ECR")]
-        subgraph VPC["VPC"]
-            NLB["Network Load Balancer"]
-            subgraph EKS["EKS"]
-                Prod["ns oficina-api - 2..6 pods + HPA"]
-                Homolog["ns oficina-api-homolog - 1 pod"]
-                NRAgent["New Relic nri-bundle"]
-            end
-            RDS[("RDS PostgreSQL 16")]
+
+        subgraph EKS["EKS"]
+            OS["oficina-os-service<br/>orquestrador da saga"]
+            Billing["oficina-billing-service"]
+            Execution["oficina-execution-service"]
         end
+
+        subgraph Queues["Amazon SQS"]
+            QE[["execution-commands"]]
+            QB[["billing-commands"]]
+            QR[["saga-replies"]]
+        end
+
+        RDSOS[("RDS PostgreSQL<br/>OS")]
+        RDSB[("RDS PostgreSQL<br/>Billing")]
+        DDB[("DynamoDB<br/>Execution")]
     end
 
-    NR["New Relic - APM, Logs, Infra, Dashboards, Alerts"]
-    Resend["Resend"]
+    NR["New Relic"]
 
-    Customer -->|"POST /auth/cpf"| APIGW
-    Operator -->|"POST /api/v1/auth/login"| APIGW
-    Customer -->|"Bearer JWT"| APIGW
+    Customer --> APIGW
+    Operator --> APIGW
+    MP -->|"webhook"| APIGW
     APIGW --> LambdaAuth
     APIGW -.->|"valida JWT"| LambdaAuthz
-    APIGW -->|"proxy HTTP"| NLB
-    NLB --> Prod
-    LambdaAuth --> RDS
-    Prod --> RDS
-    Homolog --> RDS
-    Prod --> Resend
-    Prod -.->|"OTLP traces"| NR
-    NRAgent -.->|"métricas K8s + logs"| NR
-    LambdaAuth -.-> SSM
-    EKS -.-> ECR
+    LambdaAuth -->|"REST interno"| OS
+    APIGW -->|"REST"| OS
+    APIGW -->|"REST"| Billing
+    APIGW -->|"REST"| Execution
+
+    OS -->|"comandos"| QE
+    OS -->|"comandos"| QB
+    QE --> Execution
+    QB --> Billing
+    Execution -->|"respostas"| QR
+    Billing -->|"respostas"| QR
+    QR --> OS
+
+    OS --> RDSOS
+    Billing --> RDSB
+    Execution --> DDB
+    Billing -->|"cobrança e estorno"| MP
+
+    OS -.->|"traces e logs"| NR
+    Billing -.-> NR
+    Execution -.-> NR
 ```
 
-Detalhes e o diagrama completo (com GitHub Actions, CloudWatch, S3 state) em [`docs/architecture/components.md`](./docs/architecture/components.md).
+Cada microsserviço é dono dos seus dados: nenhum lê o banco do outro. O que um serviço precisa saber do outro chega por mensagem (o diagnóstico vai para o faturamento com nomes e preços congelados) ou por REST (a Lambda de autenticação consulta o cliente em uma rota interna deste serviço).
 
-### 2. Componentes da aplicação (Clean Architecture)
+### Comunicação
 
-As dependências apontam sempre **para dentro**: a API depende dos casos de uso, que dependem do domínio. A infraestrutura implementa as **portas** (interfaces) definidas no domínio — nada do domínio conhece framework, banco, HTTP ou telemetria.
+| Tipo | Onde | Por quê |
+|---|---|---|
+| **REST** | Clientes e operadores → API Gateway → serviço dono do recurso; Lambda `auth-cpf` → `GET /internal/customers/by-document/{document}`; Mercado Pago → webhook do Billing | Consultas e ações de uma pessoa, que esperam resposta imediata |
+| **Mensageria (SQS)** | Comandos do orquestrador e respostas dos participantes | Passos da saga, que não podem se perder se um serviço estiver fora do ar e podem demorar (aprovação, pagamento) |
+
+Os contratos de todas as mensagens estão em [`messaging-contracts.md`](./docs/architecture/messaging-contracts.md).
+
+### Camadas (Clean Architecture)
+
+| Camada | Pasta | Responsabilidade |
+|---|---|---|
+| **Domain** | `internal/domain` | Entidades (`ServiceOrder`, `Saga`, `Customer`, `Vehicle`), value objects, portas e contratos de mensagens |
+| **Application** | `internal/application` | Casos de uso, orquestrador da saga, monitor de prazo e relay do outbox |
+| **Infrastructure** | `internal/infrastructure` | GORM/PostgreSQL, SQS, Resend, BrasilAPI e observabilidade |
+| **API** | `internal/api` | Handlers, middlewares, DTOs e mapeamento de erros |
+
+---
+
+## Saga da ordem de serviço
+
+### Fluxo
 
 ```mermaid
-flowchart TD
-    subgraph API["API - Frameworks e Drivers (Gin)"]
-        H[Handlers]
-        MW["Middlewares: JWT, Webhook, RequestID, RequestLogger, OTel"]
-        DTO["DTOs + mapeamento de erros"]
-    end
-    subgraph APP["Application - Casos de Uso"]
-        UC["Use Cases: serviceorder, customer, vehicle, part, service, auth"]
-    end
-    subgraph DOM["Domain - Entidades e Regras"]
-        ENT[Entities]
-        VO["Value Objects: CPF, CNPJ, Plate, OrderStatus, CustomerStatus"]
-        PORT["Ports: Repository / NotificationService / CNPJValidationService"]
-    end
-    subgraph INFRA["Infrastructure - Adapters"]
-        GORM["Repositórios GORM + PostgreSQL"]
-        RESEND["Resend Notifier"]
-        BRASIL["BrasilAPI Client"]
-        OBS["Observability: slog JSON + OpenTelemetry"]
-    end
+sequenceDiagram
+    autonumber
+    participant Op as Operador
+    participant OS as OS Service (orquestrador)
+    participant Ex as Execution Service
+    participant Bi as Billing Service
+    participant MP as Mercado Pago
+    participant Cl as Cliente
 
-    H --> UC
-    MW --> UC
-    H -.->|eventos de negócio| OBS
-    UC --> PORT
-    UC --> ENT
-    ENT --> VO
-    GORM -. implementa .-> PORT
-    RESEND -. implementa .-> PORT
-    BRASIL -. implementa .-> PORT
+    Op->>OS: POST /service-orders
+    OS->>Ex: RequestDiagnosis
+    Note over OS: OS received
+    Op->>Ex: inicia e conclui o diagnóstico (serviços e peças)
+    Ex-->>OS: DiagnosisStarted, DiagnosisCompleted
+    Note over OS: OS in_diagnosis
+    OS->>Bi: GenerateBudget
+    Bi-->>OS: BudgetGenerated
+    Note over OS: OS waiting_approval
+    Cl->>Bi: PATCH /budgets/{id}/approve
+    Bi-->>OS: BudgetApproved
+    OS->>Bi: RequestPayment
+    Bi->>MP: cria preferência de pagamento
+    Bi-->>OS: PaymentRequested (link de checkout)
+    Note over OS: OS waiting_payment
+    Cl->>MP: paga
+    MP->>Bi: webhook
+    Bi-->>OS: PaymentConfirmed
+    OS->>Ex: StartExecution
+    Ex-->>OS: ExecutionStarted (estoque reservado)
+    Note over OS: OS in_execution
+    Op->>Ex: PATCH /work-orders/{id}/finish-execution
+    Ex-->>OS: ExecutionFinished
+    Note over OS: OS finished, saga concluída
+    Op->>OS: PATCH /service-orders/{id}/deliver
+    Note over OS: OS delivered
 ```
 
-| Camada | Pasta | Responsabilidade | Depende de |
-|---|---|---|---|
-| **Domain** | `internal/domain` | Entidades, value objects, regras de negócio e **portas** | nada externo |
-| **Application** | `internal/application` | Casos de uso (um por operação); orquestra o domínio | apenas do domínio |
-| **Infrastructure** | `internal/infrastructure` | Adapters: GORM/PostgreSQL, Resend, BrasilAPI, observabilidade | implementa portas do domínio |
-| **API** | `internal/api` | Handlers Gin, middlewares, DTOs, mapeamento de erros | dos casos de uso |
+Status da ordem de serviço:
 
-### 3. Fluxo de deploy (CI/CD)
-
-```mermaid
-flowchart LR
-    Dev[Desenvolvedor] -->|Pull Request| CI["CI: build, vet, testes unitários e integração, kustomize, docker build"]
-    CI -->|merge| Branch{branch}
-    Branch -->|homolog| CDh["CD homolog"]
-    Branch -->|main| CDp["CD produção"]
-    CDh & CDp -->|OIDC assume role| STS[AWS STS]
-    CDh & CDp -->|build + push| ECR[(ECR)]
-    CDh & CDp -.->|lê database_url, jwt_secret, webhook_secret| SSM[(SSM)]
-    CDh -->|kubectl apply -k overlays/homolog| NSH["ns oficina-api-homolog"]
-    CDp -->|kubectl apply -k overlays/prod| NSP["ns oficina-api"]
+```
+received → in_diagnosis → waiting_approval → waiting_payment → in_execution → finished → delivered
+                    ↘ cancelled (em qualquer ponto antes de finished)
 ```
 
-A branch `main` é **protegida**: sem commits diretos, merge apenas por Pull Request com o CI verde.
+### Compensações
+
+Quando um passo falha, o orquestrador cancela a ordem de serviço e desfaz, **um por vez e na ordem inversa**, o que já tinha sido feito. Cada comando de compensação só é enviado depois da confirmação do anterior.
+
+| Falha | Vem de | Compensações, em ordem |
+|---|---|---|
+| Diagnóstico não pôde ser feito (`DiagnosisFailed`) | Execution | nenhuma: nada foi feito fora do OS Service |
+| Orçamento recusado (`BudgetRejected`) | Billing | `CancelWorkOrder` |
+| Pagamento recusado (`PaymentFailed`) | Billing | `CancelBudget` → `CancelWorkOrder` |
+| Estoque insuficiente (`ExecutionRejected`) | Execution | `RefundPayment` → `CancelBudget` → `CancelWorkOrder` |
+| Cancelamento pelo operador ou prazo do passo esgotado | OS | conforme o passo em que a saga está |
+
+Estados da saga: `running` → `completed`, ou `running` → `compensating` → `compensated`. O histórico de comandos, respostas, falhas e compensações de cada ordem pode ser consultado em `GET /api/v1/service-orders/{id}/saga`.
+
+### Por que Saga orquestrada
+
+O fluxo da ordem de serviço atravessa três bancos de dados e um serviço externo de pagamento, então não cabe em uma transação. As duas formas de coordenar uma saga foram comparadas:
+
+| Critério | Orquestrada (escolhida) | Coreografada |
+|---|---|---|
+| Onde está a regra do fluxo | Em um lugar só: o orquestrador | Espalhada pelos consumidores de eventos de cada serviço |
+| Ordem das compensações | Explícita; o orquestrador envia uma por vez | Implícita; cada serviço precisa saber a quem reagir |
+| Acompanhamento | O estado da saga e seu histórico ficam em uma tabela | É preciso reconstruir o estado a partir dos eventos de todos os serviços |
+| Acoplamento | Os participantes só conhecem seus comandos e respostas | Os serviços conhecem os eventos uns dos outros |
+| Risco | O orquestrador concentra a lógica | Ciclos de eventos difíceis de enxergar |
+
+O fluxo aqui é **linear, com quatro passos e uma ordem estrita de compensação** (estornar antes de cancelar o orçamento, cancelar o orçamento antes de liberar a ordem de trabalho). A ordem de serviço já é o agregado que representa o processo para o cliente, então o OS Service é o lugar natural do orquestrador: o status que o cliente consulta e o estado da saga mudam na mesma transação. Com coreografia, essa ordem de compensação ficaria implícita em três serviços e uma mudança no fluxo exigiria alterar todos eles.
+
+A desvantagem aceita é a dependência do orquestrador. Ela é reduzida porque os participantes continuam funcionando sem ele (as filas guardam os comandos e as respostas) e porque o orquestrador não guarda estado em memória: qualquer réplica continua uma saga a partir do banco.
+
+### Garantias
+
+- **Outbox transacional.** A mudança de estado e a mensagem de saída são gravadas na mesma transação; um relay publica no SQS depois. Nenhum comando é perdido se o serviço cair entre gravar e publicar.
+- **Consumo idempotente.** Cada serviço registra as mensagens processadas e ignora repetições; os casos de uso também conferem o estado antes de agir.
+- **Respostas fora de ordem.** O status da ordem só avança; uma resposta atrasada de um passo anterior é registrada e ignorada.
+- **Concorrência.** A saga tem controle otimista de versão; duas réplicas não aplicam a mesma resposta duas vezes.
+- **Prazo por passo.** Uma saga parada além de `SAGA_STEP_TIMEOUT` é cancelada e compensada.
+- **DLQ.** Depois de 5 entregas sem sucesso a mensagem vai para a fila `-dlq`, que tem alerta.
 
 ---
 
 ## Autenticação
 
-Dois emissores produzem o **mesmo JWT HS256**, assinado com o segredo único guardado no SSM (`/oficina-api/jwt_secret`):
+Dois emissores produzem o mesmo JWT HS256, assinado com o segredo guardado no SSM (`/oficina-api/jwt_secret`) e aceito pelos três microsserviços:
 
-| Quem | Como | Onde |
+| Quem | Como | Papel no token |
 |---|---|---|
-| Operador da oficina | `POST /api/v1/auth/login` com e-mail e senha (bcrypt) | Esta API |
-| Cliente | `POST /auth/cpf` com o CPF — a Lambda valida o CPF, confirma que o cliente existe e está **ativo** e devolve o token | [oficina-lambda-auth](https://github.com/gaabriel165/oficina-lambda-auth) via API Gateway |
+| Operador | `POST /api/v1/auth/login` com e-mail e senha | `operator` |
+| Cliente | `POST /auth/cpf` com o CPF, atendido pela Lambda | `customer` |
 
-As rotas sob `/api/v1/*` são protegidas em **duas camadas**: o **Lambda authorizer** do API Gateway rejeita tokens inválidos na borda (401) e o middleware `Auth` da aplicação valida de novo (defesa em profundidade). Rotas públicas: `/health`, `/ready`, `/swagger/*`, `POST /api/v1/auth/login|register`, `GET /api/v1/service-orders/{id}/status` e o webhook `POST /api/v1/service-orders/{id}/budget-approval` (protegido por `X-Webhook-Secret`).
+As rotas sob `/api/v1` são protegidas em duas camadas: o Lambda authorizer do API Gateway rejeita tokens inválidos na borda e cada serviço valida o token de novo. O cliente só acessa as próprias ordens de serviço e orçamentos; as demais rotas respondem 403.
 
-O token carrega a claim `role`, e a aplicação autoriza por papel:
+A Lambda não acessa mais o banco: consulta o cliente em `GET /internal/customers/by-document/{document}`, rota que exige o cabeçalho `X-Internal-Secret` e não é publicada no API Gateway.
 
-| Papel | Emissor | Pode |
-|---|---|---|
-| `operator` | `POST /api/v1/auth/login` | Todas as rotas |
-| `customer` | `POST /auth/cpf` (Lambda) | Listar e consultar **apenas as próprias** ordens de serviço, aprovar ou recusar **o próprio** orçamento. Qualquer outra rota responde **403** |
+## Observabilidade
 
-Clientes podem ser desativados com `PATCH /api/v1/customers/{id}/status` (`{"status":"inactive"}`); a Lambda passa a responder **403** para o CPF. Detalhes em [RFC-003](./docs/architecture/rfc/RFC-003-estrategia-de-autenticacao.md) e [ADR-003](./docs/architecture/adr/ADR-003-jwt-hs256-segredo-compartilhado.md).
+Os três serviços emitem logs em JSON e traces OpenTelemetry para o New Relic. O contexto de trace (W3C Trace Context) viaja nos atributos das mensagens SQS e é guardado no outbox, então um único trace acompanha a ordem de serviço pelos três serviços.
 
-## Observabilidade (New Relic)
-
-| Requisito | Implementação |
+| Evento | Quando |
 |---|---|
-| Latência das APIs | Spans HTTP (`otelgin`) e de banco (plugin GORM) exportados via **OTLP** para o New Relic; campo `latency_ms` em cada log `http.request` |
-| CPU e memória do Kubernetes | `nri-bundle` (infra agent + kube-state-metrics) instalado pelo CD do `oficina-infra-k8s` |
-| Healthchecks e uptime | `/health` (processo) e `/ready` (ping no banco) usados pelas probes; monitor Synthetics no `/health` via API Gateway |
-| Alertas de falha no processamento de OS | Evento `service_order.failed` → condição NRQL `count(*) > 0` em 5 min → e-mail |
-| Logs estruturados com correlação | `log/slog` em JSON com `request_id` (header `X-Request-ID`, gerado quando ausente), `trace_id` e `span_id` do OpenTelemetry em toda linha; Fluent Bit envia o stdout dos pods |
+| `saga.started`, `saga.step_completed`, `saga.completed` | Avanço da saga |
+| `saga.compensating`, `saga.compensated` | Falha e compensação |
+| `saga.reply_ignored`, `saga.timed_out` | Resposta repetida ou atrasada; prazo esgotado |
+| `message.published`, `message.processed`, `message.duplicate`, `message.failed` | Mensageria |
+| `service_order.created`, `service_order.status_changed`, `service_order.failed` | Ciclo de vida da ordem |
+| `integration.error` | Falha no Resend ou na BrasilAPI |
+| `http.request` | Toda requisição, com `latency_ms` |
 
-Eventos de negócio (campo `event`) que alimentam os dashboards:
-
-| Evento | Quando | Campos relevantes |
-|---|---|---|
-| `service_order.created` | OS aberta | `order_id`, `customer_id`, `services`, `parts` |
-| `service_order.status_changed` | Qualquer transição | `from_status`, `to_status`, `duration_minutes` (tempo no status anterior), `total_amount` |
-| `service_order.failed` | Erro em rota de OS | `action`, `order_id`, `error` |
-| `integration.error` | Falha no Resend ou na BrasilAPI | `integration`, `operation`, `error` |
-| `http.request` | Toda requisição | `method`, `route`, `status`, `latency_ms` |
-
-Dashboards expostos: **volume diário de OS**, **tempo médio por status** (diagnóstico, execução, finalização), **erros e falhas nas integrações**, latência p50/p95 e CPU/memória por pod. NRQL de referência em [`sequence-service-order.md`](./docs/architecture/sequence-service-order.md) e [RFC-004](./docs/architecture/rfc/RFC-004-ferramenta-de-observabilidade.md).
+Todas as linhas levam `request_id`, `trace_id` e `span_id`; as da saga levam `saga_id` e `order_id`.
 
 ---
 
-## Stack
+## Como executar
 
-| Categoria | Tecnologias |
-|---|---|
-| **Aplicação** | Go 1.25, Gin, GORM, golang-migrate, golang-jwt |
-| **Observabilidade** | `log/slog` (JSON), OpenTelemetry (`otelgin`, plugin GORM, exportador OTLP/HTTP), New Relic |
-| **Banco** | PostgreSQL 16 (local via Docker, produção via RDS) |
-| **E-mail** | Resend (adapter atrás da porta `NotificationService`) |
-| **Testes** | Testify, Mockery, testcontainers-go |
-| **Container** | Docker (multi-stage, binário estático, non-root) |
-| **Orquestração** | Kubernetes (AWS EKS) + kustomize (base + overlays) + HPA |
-| **Borda** | AWS API Gateway HTTP API + Lambda authorizer |
-| **IaC / CI/CD** | Terraform (repos de infra) · GitHub Actions com OIDC |
+### Os três microsserviços juntos
 
-### Por que PostgreSQL?
-
-Modelo relacional com integridade referencial, transações (aprovação de orçamento + débito de estoque atômicos), tipos `UUID`/`NUMERIC`/`TIMESTAMP`, migrations maduras no ecossistema Go e RDS gerenciado. Justificativa formal, diagrama ER e os ajustes da Fase 3 (status do cliente, índices, normalização) em [`docs/architecture/database.md`](./docs/architecture/database.md).
-
----
-
-## Conceitos de Domínio
-
-| Entidade | Descrição |
-|---|---|
-| **User** | Operador do sistema — autenticado via e-mail/senha, recebe JWT |
-| **Customer** | Proprietário do veículo — identificado por CPF ou CNPJ; possui **status** `active`/`inactive` |
-| **Vehicle** | Pertence a um Customer — placa (formato antigo ou Mercosul) |
-| **Service** | Mão de obra oferecida (ex: Troca de Óleo) |
-| **Part** | Peça física com controle de estoque |
-| **ServiceOrder** | Agregado principal — controla o ciclo de vida do reparo e registra a última transição de status |
-
-```
-received → in_diagnosis → waiting_approval → in_execution → finished → delivered
-                                          ↘ cancelled (orçamento rejeitado)
-```
-
-Cada transição dispara uma **notificação por e-mail** ao cliente (best-effort) e um evento `service_order.status_changed` nos logs.
-
----
-
-## Como Executar
-
-### A) Local (docker-compose)
+Com os três repositórios clonados lado a lado:
 
 ```bash
-cp .env.example .env      # ajuste as variáveis
+make system/up      # sobe os três serviços, dois PostgreSQL, DynamoDB Local e ElasticMQ
+make system/logs
+make system/down
+```
+
+| Serviço | Endereço |
+|---|---|
+| OS Service | `http://localhost:8080` |
+| Billing Service | `http://localhost:8081` |
+| Execution Service | `http://localhost:8082` |
+
+Nenhum recurso da AWS é usado: o ElasticMQ emula o SQS, o DynamoDB Local emula o DynamoDB e o pagamento usa o gateway falso do Billing (`POST /api/v1/payments/{id}/simulate`).
+
+### Só este serviço
+
+```bash
+cp .env.example .env
 docker compose up --build
 ```
 
-- API: `http://localhost:8080` · Swagger: `http://localhost:8080/swagger/index.html`
-- Sobe a aplicação + PostgreSQL; migrations e seed rodam automaticamente no startup.
-- Usuário seed: `admin@oficina.com` / `admin123`. Cliente seed com CPF `98765432100`.
-- Para enviar traces localmente, preencha `OTEL_EXPORTER_OTLP_ENDPOINT` e `OTEL_EXPORTER_OTLP_HEADERS` (`api-key=<license>`).
+- API em `http://localhost:8080`, Swagger em `http://localhost:8080/swagger/index.html`.
+- Migrations e dados iniciais rodam no startup. Operador: `admin@oficina.com` / `admin123`. Cliente com CPF `98765432100`.
 
-### B) Infraestrutura
+### Em produção
 
-Provisionada pelos repositórios dedicados (Terraform): [oficina-infra-k8s](https://github.com/gaabriel165/oficina-infra-k8s) (rede, EKS, ECR, OIDC, SSM) e [oficina-infra-db](https://github.com/gaabriel165/oficina-infra-db) (RDS). O API Gateway e as Lambdas ficam em [oficina-lambda-auth](https://github.com/gaabriel165/oficina-lambda-auth).
-
-### C) Deploy em Kubernetes
-
-O **CD faz isso automaticamente**: push em `homolog` → namespace `oficina-api-homolog`; merge em `main` → namespace `oficina-api`. O pipeline builda a imagem, publica no ECR, lê `database_url`, `jwt_secret` e `webhook_secret` do SSM, cria o Secret e aplica o overlay.
-
-Manualmente:
-
-```bash
-aws eks update-kubeconfig --name oficina-api-eks --region us-east-1
-
-kubectl create namespace oficina-api
-kubectl create secret generic oficina-api-secrets -n oficina-api \
-  --from-literal=DATABASE_URL="$(aws ssm get-parameter --name /oficina-api/database_url --with-decryption --query Parameter.Value --output text)" \
-  --from-literal=JWT_SECRET="$(aws ssm get-parameter --name /oficina-api/jwt_secret --with-decryption --query Parameter.Value --output text)" \
-  --from-literal=WEBHOOK_SECRET="$(aws ssm get-parameter --name /oficina-api/webhook_secret --with-decryption --query Parameter.Value --output text)" \
-  --from-literal=RESEND_API_KEY="re_..." \
-  --from-literal=OTEL_EXPORTER_OTLP_HEADERS="api-key=<new-relic-license>"
-
-(cd k8s/base && kustomize edit set image oficina-api=<ecr-url>:<tag>)
-kubectl apply -k k8s/overlays/prod
-kubectl get svc oficina-api -n oficina-api      # host do NLB
-```
-
-### D) Autenticar por CPF e consumir a API protegida (via API Gateway)
+Ordem de provisionamento: `oficina-infra-k8s` → `oficina-infra-db` → CD dos três serviços → `oficina-lambda-auth`. A destruição segue a ordem inversa. Cada pipeline aplica o Terraform do próprio repositório e faz o deploy no EKS.
 
 ```bash
 GW=https://<api-id>.execute-api.us-east-1.amazonaws.com
@@ -280,98 +284,108 @@ curl -s "$GW/api/v1/service-orders" -H "Authorization: Bearer $TOKEN"
 
 ---
 
-## Variáveis de Ambiente
+## Endpoints deste serviço
+
+| Método e rota | Quem | Descrição |
+|---|---|---|
+| `POST /api/v1/auth/register`, `POST /api/v1/auth/login` | público | Cadastro e login de operador |
+| `GET /api/v1/service-orders/{id}/status` | público | Status da ordem para o cliente |
+| `POST /api/v1/service-orders` | operador | Abre a ordem e inicia a saga |
+| `GET /api/v1/service-orders` | operador e cliente | Ordens ativas por urgência; o cliente vê só as suas |
+| `GET /api/v1/service-orders/{id}` | operador e cliente | Detalhe, com orçamento e link de pagamento |
+| `GET /api/v1/service-orders/{id}/history` | operador e cliente | Histórico de status |
+| `GET /api/v1/service-orders/{id}/saga` | operador e cliente | Estado e registro da saga |
+| `PATCH /api/v1/service-orders/{id}/cancel` | operador | Cancela e dispara as compensações |
+| `PATCH /api/v1/service-orders/{id}/deliver` | operador | Entrega o veículo |
+| `/api/v1/customers`, `/api/v1/vehicles` | operador | Cadastros |
+| `GET /internal/customers/by-document/{document}` | Lambda | Consulta interna de cliente |
+| `GET /health`, `GET /ready` | público | Liveness e readiness |
+
+Roteamento no API Gateway:
+
+| Rota | Destino |
+|---|---|
+| `POST /auth/cpf` | Lambda `auth-cpf` |
+| `/api/v1/budgets`, `/api/v1/payments`, `POST /api/v1/webhooks/mercadopago` | Billing Service |
+| `/api/v1/work-orders`, `/api/v1/parts`, `/api/v1/services` | Execution Service |
+| demais rotas sob `/api/v1`, `/health`, `/swagger` | OS Service |
+
+## Variáveis de ambiente
 
 | Variável | Descrição |
 |---|---|
-| `SERVER_PORT` | Porta HTTP (padrão `8080`) |
-| `APP_ENV` | Ambiente (`local`, `homolog`, `production`) — vai para os logs e traces |
-| `DATABASE_URL` | String de conexão do PostgreSQL |
-| `JWT_SECRET` | Chave HS256 compartilhada com a Lambda de autenticação |
-| `WEBHOOK_SECRET` | Segredo do webhook de aprovação de orçamento |
-| `RESEND_API_KEY` / `EMAIL_FROM` | Envio de e-mails |
-| `OTEL_SERVICE_NAME` | Nome do serviço na telemetria (padrão `oficina-api`) |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | Endpoint OTLP/HTTP (New Relic: `https://otlp.nr-data.net:4318`); vazio desliga o tracing |
-| `OTEL_EXPORTER_OTLP_HEADERS` | Cabeçalhos do exportador (`api-key=<license>`) |
+| `SERVER_PORT`, `APP_ENV` | Porta HTTP e ambiente |
+| `DATABASE_URL` | Conexão com o PostgreSQL deste serviço |
+| `JWT_SECRET` | Chave HS256 compartilhada com os outros serviços e a Lambda |
+| `INTERNAL_API_SECRET` | Segredo exigido nas rotas `/internal` |
+| `AWS_REGION`, `SQS_ENDPOINT` | Região e endpoint do SQS (endpoint só para o emulador local) |
+| `SAGA_REPLIES_QUEUE`, `BILLING_COMMANDS_QUEUE`, `EXECUTION_COMMANDS_QUEUE` | Nomes das filas |
+| `SAGA_STEP_TIMEOUT` | Prazo de cada passo da saga (padrão `72h`) |
+| `RESEND_API_KEY`, `EMAIL_FROM` | Envio de e-mail a cada mudança de status |
+| `OTEL_SERVICE_NAME`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS` | Exportação de traces |
 
 ---
 
-## Endpoints da API
+## Testes e cobertura
 
-> Base URL: `https://<api-id>.execute-api.us-east-1.amazonaws.com/api/v1` (gateway) ou `http://<host>:8080/api/v1`
+```bash
+make test/unit
+make test/integration
+make test/coverage
+make coverage/check
+```
 
-### Público
-| Método | Caminho | Descrição |
+- **Unitários**: entidades, orquestrador da saga (caminho feliz, cada cadeia de compensação, respostas repetidas e fora de ordem, cancelamento, prazo), casos de uso e middlewares.
+- **Integração**: saga, outbox, repositórios e todas as rotas HTTP contra PostgreSQL real, com testcontainers.
+- **BDD**: [`saga_ordem_de_servico.feature`](./internal/integration/features/saga_ordem_de_servico.feature) descreve em Gherkin o fluxo completo da ordem de serviço, da abertura à entrega, e três cenários de compensação. Roda com godog em `go test ./internal/integration/ -run TestSagaFeatures`.
+- **Cobertura**: medida sobre os pacotes do serviço somando testes unitários e de integração. O pipeline falha abaixo de **80%**.
+
+| Serviço | Cobertura | Quality gate |
 |---|---|---|
-| POST | `/auth/cpf` | **(API Gateway → Lambda)** Autenticar cliente por CPF e receber JWT |
-| POST | `/api/v1/auth/register` | Criar usuário operador |
-| POST | `/api/v1/auth/login` | Autenticar operador e receber JWT |
-| GET | `/api/v1/service-orders/{id}/status` | Consulta de status pelo cliente |
-| GET | `/health` · `/ready` | Liveness · readiness (ping no banco) |
+| OS Service | 90,6% | [SonarCloud](https://sonarcloud.io/summary/overall?id=gaabriel165_oficina-os-service) |
+| Billing Service | 94,4% | [SonarCloud](https://sonarcloud.io/summary/overall?id=gaabriel165_oficina-billing-service) |
+| Execution Service | 94,2% | [SonarCloud](https://sonarcloud.io/summary/overall?id=gaabriel165_oficina-execution-service) |
 
-### Ordens de Serviço (JWT)
-| Método | Caminho | Descrição |
-|---|---|---|
-| POST | `/api/v1/service-orders` | Abrir OS (cliente, veículo, serviços e peças na mesma chamada) |
-| GET | `/api/v1/service-orders` | Listar OS ativas ordenadas por urgência (cliente vê só as suas) |
-| GET | `/api/v1/service-orders/{id}` | Detalhar OS (cliente só a própria) |
-| GET | `/api/v1/service-orders/metrics` | Tempo médio de execução por serviço |
-| POST | `/api/v1/service-orders/{id}/budget-approval` | **Webhook** de aprovação/recusa externa (`X-Webhook-Secret`) |
-| PATCH | `.../approve-budget` · `/reject-budget` | Decisão do orçamento (operador ou o próprio cliente) |
-| PATCH | `.../start-diagnosis` · `/send-budget` · `/finish-execution` · `/deliver` | Transições operacionais (só operador) |
-| POST | `/api/v1/service-orders/{id}/services` · `/parts` | Adicionar serviço / peça |
+## CI/CD
 
-### Roteamento no API Gateway
-| Rota | Autenticação na borda | Destino |
-|---|---|---|
-| `POST /auth/cpf` | nenhuma | Lambda `auth-cpf` |
-| `GET /health`, `GET /swagger/{proxy+}` | nenhuma | EKS (proxy HTTP) |
-| `POST /api/v1/auth/login`, `POST /api/v1/auth/register` | nenhuma | EKS |
-| `GET /api/v1/service-orders/{id}/status` | nenhuma | EKS |
-| `POST /api/v1/service-orders/{id}/budget-approval` | `X-Webhook-Secret` (na aplicação) | EKS |
-| `ANY /api/v1/{proxy+}` | Lambda authorizer (JWT HS256) | EKS |
+A branch `main` é protegida nos três serviços: toda mudança entra por pull request com os checks aprovados.
 
-### CRUDs administrativos (JWT de operador)
-`/api/v1/customers` (+ `PATCH /{id}/status`), `/api/v1/vehicles`, `/api/v1/parts` (+ `PATCH /{id}/stock`), `/api/v1/services` — todos com `GET` (lista), `POST`, `GET/{id}`, `PUT/{id}`, `DELETE/{id}`.
+```mermaid
+flowchart LR
+    PR["Pull request"] --> CI["CI: build, vet, testes unitários e de integração, cobertura ≥ 80%, SonarCloud, kustomize, terraform validate, docker build"]
+    CI -->|"merge em main"| CD["CD"]
+    CD -->|"OIDC"| AWS["AWS"]
+    CD --> TF["terraform apply (filas, banco, role do pod)"]
+    CD --> ECR[("ECR")]
+    CD --> EKS["kubectl apply -k no EKS"]
+```
 
----
+Cada serviço tem o próprio pipeline e é publicado de forma independente. Configuração no GitHub: variáveis `AWS_REGION` e `EKS_CLUSTER_NAME`; secrets `AWS_ROLE_ARN`, `SONAR_TOKEN`, `RESEND_API_KEY` e `NEW_RELIC_LICENSE_KEY`.
+
+## Infraestrutura deste serviço
+
+| Recurso | Onde é criado |
+|---|---|
+| SQS `oficina-saga-replies` e `-dlq`, IAM role `oficina-os-service-pod` (IRSA) | `terraform/` deste repositório |
+| RDS PostgreSQL e `/oficina-api/database_url` | [oficina-infra-db](https://github.com/gaabriel165/oficina-infra-db) |
+| VPC, EKS, ECR, `jwt_secret` e `internal_api_secret` | [oficina-infra-k8s](https://github.com/gaabriel165/oficina-infra-k8s) |
+
+Os manifests em `k8s/` (kustomize) criam o namespace `oficina-api`, o `ServiceAccount`, o `Deployment` com probes, o `Service` (NLB) e o `HPA` de 2 a 6 réplicas.
 
 ## Estrutura de pastas
 
 ```
-cmd/api/                  → entrypoint (logger, tracing, migrations, graceful shutdown)
-configs/                  → carregamento de variáveis de ambiente
-internal/
-  domain/                 → entities, value objects, ports, erros de domínio
-  application/usecase/    → casos de uso (um por operação) + mocks
-  infrastructure/         → GORM (PostgreSQL), Resend, BrasilAPI, observability (slog + OTel)
-  api/                    → handlers, middlewares, DTOs, mapeamento de erros, server.go
-migrations/               → migrations SQL versionadas (golang-migrate)
-docs/architecture/        → documentação arquitetural da Fase 3 (Mermaid, RFCs, ADRs)
-docs/                     → Swagger gerado
-k8s/base + k8s/overlays/  → manifestos Kubernetes (kustomize): prod e homolog
-load/                     → script k6 para demonstrar o HPA
-.github/workflows/        → CI (PR) e CD (homolog / main)
+cmd/api/                  ponto de entrada
+configs/                  leitura de variáveis de ambiente
+internal/domain/          entidades, value objects, portas e contratos de mensagens
+internal/application/     casos de uso, orquestrador da saga e relay do outbox
+internal/infrastructure/  PostgreSQL, SQS, Resend, BrasilAPI e observabilidade
+internal/api/             handlers, middlewares e DTOs
+internal/integration/     testes de integração e cenários em BDD
+migrations/               migrations versionadas
+docs/architecture/        documentação arquitetural (diagramas, RFCs e ADRs)
+docs/                     Swagger gerado
+k8s/                      manifests do Kubernetes
+terraform/                infraestrutura do serviço
+load/                     script k6
 ```
-
-## Testes
-
-```bash
-# unitários (domínio + casos de uso + api + observabilidade)
-go test ./internal/domain/... ./internal/application/... ./internal/api/... ./internal/infrastructure/observability/...
-
-# integração (sobe PostgreSQL via testcontainers — requer Docker)
-go test ./internal/integration/... -timeout 300s
-
-# cobertura
-go test ./internal/... -coverprofile=coverage.out && go tool cover -func=coverage.out
-```
-
-## CI/CD
-
-- **`ci.yml`** — em todo Pull Request: `build`, `vet`, testes unitários e de integração, validação dos overlays kustomize e build da imagem Docker.
-- **`cd.yml`** — push em `homolog` ou `main`: autentica na AWS via **OIDC**, builda e publica a imagem no **ECR**, lê os segredos do **SSM** e faz o deploy no namespace do ambiente com `kubectl apply -k`.
-
-Configuração no GitHub (Settings → Secrets and variables → Actions):
-- **Variables:** `AWS_REGION`, `EKS_CLUSTER_NAME`, `ECR_REPOSITORY_URL`
-- **Secrets:** `AWS_ROLE_ARN` (role `oficina-api-app-github-actions`), `RESEND_API_KEY`, `NEW_RELIC_LICENSE_KEY`

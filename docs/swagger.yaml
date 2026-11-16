@@ -1,31 +1,11 @@
 basePath: /api/v1
 definitions:
-  dto.AddPartToOrderRequest:
+  dto.CancelServiceOrderRequest:
     properties:
-      part_id:
-        type: string
-      quantity:
-        type: integer
-    required:
-    - part_id
-    - quantity
-    type: object
-  dto.AddServiceToOrderRequest:
-    properties:
-      service_id:
+      reason:
         type: string
     required:
-    - service_id
-    type: object
-  dto.BudgetApprovalWebhookRequest:
-    properties:
-      decision:
-        enum:
-        - approved
-        - rejected
-        type: string
-    required:
-    - decision
+    - reason
     type: object
   dto.ChangeCustomerStatusRequest:
     properties:
@@ -51,65 +31,17 @@ definitions:
     - name
     - phone
     type: object
-  dto.CreatePartRequest:
-    properties:
-      description:
-        type: string
-      name:
-        type: string
-      stock_quantity:
-        minimum: 0
-        type: integer
-      unit_price:
-        type: number
-    required:
-    - name
-    - unit_price
-    type: object
-  dto.CreateServiceOrderPartRequest:
-    properties:
-      part_id:
-        type: string
-      quantity:
-        type: integer
-    required:
-    - part_id
-    - quantity
-    type: object
   dto.CreateServiceOrderRequest:
     properties:
       customer_id:
         type: string
       notes:
         type: string
-      parts:
-        items:
-          $ref: '#/definitions/dto.CreateServiceOrderPartRequest'
-        type: array
-      services:
-        items:
-          type: string
-        type: array
       vehicle_id:
         type: string
     required:
     - customer_id
     - vehicle_id
-    type: object
-  dto.CreateServiceRequest:
-    properties:
-      description:
-        type: string
-      estimated_minutes:
-        type: integer
-      labor_price:
-        type: number
-      name:
-        type: string
-    required:
-    - estimated_minutes
-    - labor_price
-    - name
     type: object
   dto.CreateUserRequest:
     properties:
@@ -140,6 +72,15 @@ definitions:
     - model
     - plate
     - year
+    type: object
+  dto.CustomerIdentityResponse:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+      status:
+        type: string
     type: object
   dto.CustomerResponse:
     properties:
@@ -172,69 +113,52 @@ definitions:
     - email
     - password
     type: object
-  dto.PartResponse:
+  dto.SagaLogEntryResponse:
     properties:
-      created_at:
+      detail:
         type: string
-      description:
-        type: string
-      id:
+      kind:
         type: string
       name:
         type: string
-      stock_quantity:
-        type: integer
-      unit_price:
-        type: number
-      updated_at:
+      occurred_at:
         type: string
     type: object
-  dto.ServiceMetricRowResponse:
+  dto.SagaResponse:
     properties:
-      avg_minutes:
-        type: number
-      completed_orders:
-        type: integer
-      service_name:
+      deadline:
         type: string
-    type: object
-  dto.ServiceOrderItemResponse:
-    properties:
+      failure_reason:
+        type: string
+      finished_at:
+        type: string
       id:
         type: string
-      labor_price:
-        type: number
-      service_id:
-        type: string
-      service_name:
-        type: string
-    type: object
-  dto.ServiceOrderMetricsResponse:
-    properties:
-      by_service:
+      log:
         items:
-          $ref: '#/definitions/dto.ServiceMetricRowResponse'
+          $ref: '#/definitions/dto.SagaLogEntryResponse'
         type: array
-      overall_avg_minutes:
-        type: number
-    type: object
-  dto.ServiceOrderPartResponse:
-    properties:
-      id:
+      order_id:
         type: string
-      part_id:
+      pending_compensations:
+        items:
+          type: string
+        type: array
+      started_at:
         type: string
-      part_name:
+      status:
         type: string
-      quantity:
-        type: integer
-      total:
-        type: number
-      unit_price:
-        type: number
+      step:
+        type: string
     type: object
   dto.ServiceOrderResponse:
     properties:
+      budget_id:
+        type: string
+      cancellation_reason:
+        type: string
+      checkout_url:
+        type: string
       created_at:
         type: string
       customer_id:
@@ -243,16 +167,10 @@ definitions:
         type: string
       id:
         type: string
-      items:
-        items:
-          $ref: '#/definitions/dto.ServiceOrderItemResponse'
-        type: array
       notes:
         type: string
-      parts:
-        items:
-          $ref: '#/definitions/dto.ServiceOrderPartResponse'
-        type: array
+      payment_id:
+        type: string
       started_at:
         type: string
       status:
@@ -275,22 +193,16 @@ definitions:
       updated_at:
         type: string
     type: object
-  dto.ServiceResponse:
+  dto.StatusChangeResponse:
     properties:
-      created_at:
+      from:
+        $ref: '#/definitions/valueobject.OrderStatus'
+      occurred_at:
         type: string
-      description:
+      reason:
         type: string
-      estimated_minutes:
-        type: integer
-      id:
-        type: string
-      labor_price:
-        type: number
-      name:
-        type: string
-      updated_at:
-        type: string
+      to:
+        $ref: '#/definitions/valueobject.OrderStatus'
     type: object
   dto.TokenResponse:
     properties:
@@ -309,40 +221,6 @@ definitions:
     - email
     - name
     - phone
-    type: object
-  dto.UpdatePartRequest:
-    properties:
-      description:
-        type: string
-      name:
-        type: string
-      unit_price:
-        type: number
-    required:
-    - name
-    - unit_price
-    type: object
-  dto.UpdateServiceRequest:
-    properties:
-      description:
-        type: string
-      estimated_minutes:
-        type: integer
-      labor_price:
-        type: number
-      name:
-        type: string
-    required:
-    - estimated_minutes
-    - labor_price
-    - name
-    type: object
-  dto.UpdateStockRequest:
-    properties:
-      quantity:
-        type: integer
-    required:
-    - quantity
     type: object
   dto.UpdateVehicleRequest:
     properties:
@@ -386,6 +264,7 @@ definitions:
     - received
     - in_diagnosis
     - waiting_approval
+    - waiting_payment
     - in_execution
     - finished
     - delivered
@@ -395,6 +274,7 @@ definitions:
     - OrderStatusReceived
     - OrderStatusInDiagnosis
     - OrderStatusWaitingApproval
+    - OrderStatusWaitingPayment
     - OrderStatusInExecution
     - OrderStatusFinished
     - OrderStatusDelivered
@@ -636,77 +516,20 @@ paths:
       summary: Activate or deactivate a customer
       tags:
       - customers
-  /parts:
+  /internal/customers/by-document/{document}:
     get:
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/dto.PartResponse'
-            type: array
-      security:
-      - BearerAuth: []
-      summary: List all parts
-      tags:
-      - parts
-    post:
-      consumes:
-      - application/json
+      description: Used by the authentication Lambda instead of reading the customers
+        table. Requires the X-Internal-Secret header and is not routed by the API
+        Gateway.
       parameters:
-      - description: Part data
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/dto.CreatePartRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/dto.PartResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-        "422":
-          description: Unprocessable Entity
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Create a new part
-      tags:
-      - parts
-  /parts/{id}:
-    delete:
-      parameters:
-      - description: Part ID
+      - description: CPF or CNPJ, digits only or formatted
         in: path
-        name: id
+        name: document
         required: true
         type: string
-      responses:
-        "204":
-          description: No Content
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Delete a part
-      tags:
-      - parts
-    get:
-      parameters:
-      - description: Part ID
-        in: path
-        name: id
+      - description: Shared service secret
+        in: header
+        name: X-Internal-Secret
         required: true
         type: string
       produces:
@@ -715,87 +538,18 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.PartResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Get a part by ID
-      tags:
-      - parts
-    put:
-      consumes:
-      - application/json
-      parameters:
-      - description: Part ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Part data
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/dto.UpdatePartRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/dto.PartResponse'
-        "400":
-          description: Bad Request
+            $ref: '#/definitions/dto.CustomerIdentityResponse'
+        "401":
+          description: Unauthorized
           schema:
             $ref: '#/definitions/response.ErrorResponse'
         "404":
           description: Not Found
           schema:
             $ref: '#/definitions/response.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Update a part
+      summary: Find a customer by CPF or CNPJ (service-to-service)
       tags:
-      - parts
-  /parts/{id}/stock:
-    patch:
-      consumes:
-      - application/json
-      parameters:
-      - description: Part ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Stock data
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/dto.UpdateStockRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/dto.PartResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Add stock quantity to a part
-      tags:
-      - parts
+      - internal
   /service-orders:
     get:
       description: Operators see every active order sorted by urgency; customers authenticated
@@ -817,6 +571,9 @@ paths:
     post:
       consumes:
       - application/json
+      description: The order is created as received and the diagnosis is requested
+        from the Execution Service. Services and parts are added by the mechanic during
+        diagnosis.
       parameters:
       - description: Service order data
         in: body
@@ -839,9 +596,13 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/response.ErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
       security:
       - BearerAuth: []
-      summary: Create a new service order
+      summary: Open a service order and start its saga
       tags:
       - service-orders
   /service-orders/{id}:
@@ -874,56 +635,22 @@ paths:
       summary: Get a service order by ID
       tags:
       - service-orders
-  /service-orders/{id}/approve-budget:
+  /service-orders/{id}/cancel:
     patch:
-      description: Customers authenticated by CPF can only approve their own order.
-      parameters:
-      - description: Service Order ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/dto.ServiceOrderResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-        "422":
-          description: Unprocessable Entity
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Approve the budget and start execution
-      tags:
-      - service-orders
-  /service-orders/{id}/budget-approval:
-    post:
       consumes:
       - application/json
       parameters:
-      - description: Webhook shared secret
-        in: header
-        name: X-Webhook-Secret
-        required: true
-        type: string
       - description: Service Order ID
         in: path
         name: id
         required: true
         type: string
-      - description: Budget decision
+      - description: Cancellation reason
         in: body
         name: body
         required: true
         schema:
-          $ref: '#/definitions/dto.BudgetApprovalWebhookRequest'
+          $ref: '#/definitions/dto.CancelServiceOrderRequest'
       produces:
       - application/json
       responses:
@@ -935,10 +662,6 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/response.ErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
         "404":
           description: Not Found
           schema:
@@ -947,7 +670,9 @@ paths:
           description: Unprocessable Entity
           schema:
             $ref: '#/definitions/response.ErrorResponse'
-      summary: Receive an external budget approval or rejection notification
+      security:
+      - BearerAuth: []
+      summary: Cancel a service order, compensating the steps already completed
       tags:
       - service-orders
   /service-orders/{id}/deliver:
@@ -975,11 +700,11 @@ paths:
             $ref: '#/definitions/response.ErrorResponse'
       security:
       - BearerAuth: []
-      summary: Mark vehicle as delivered to customer
+      summary: Deliver the vehicle to the customer
       tags:
       - service-orders
-  /service-orders/{id}/finish-execution:
-    patch:
+  /service-orders/{id}/history:
+    get:
       parameters:
       - description: Service Order ID
         in: path
@@ -992,63 +717,24 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.ServiceOrderResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-        "422":
-          description: Unprocessable Entity
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Mark execution as finished
-      tags:
-      - service-orders
-  /service-orders/{id}/parts:
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: Service Order ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Part data
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/dto.AddPartToOrderRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/dto.ServiceOrderResponse'
-        "400":
-          description: Bad Request
+            items:
+              $ref: '#/definitions/dto.StatusChangeResponse'
+            type: array
+        "403":
+          description: Forbidden
           schema:
             $ref: '#/definitions/response.ErrorResponse'
         "404":
           description: Not Found
           schema:
             $ref: '#/definitions/response.ErrorResponse'
-        "422":
-          description: Unprocessable Entity
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
       security:
       - BearerAuth: []
-      summary: Add a part to a service order
+      summary: Get the status history of a service order
       tags:
       - service-orders
-  /service-orders/{id}/reject-budget:
-    patch:
-      description: Customers authenticated by CPF can only reject their own order.
+  /service-orders/{id}/saga:
+    get:
       parameters:
       - description: Service Order ID
         in: path
@@ -1061,73 +747,9 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.ServiceOrderResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-        "422":
-          description: Unprocessable Entity
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Reject the budget and cancel the order
-      tags:
-      - service-orders
-  /service-orders/{id}/send-budget:
-    patch:
-      parameters:
-      - description: Service Order ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/dto.ServiceOrderResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-        "422":
-          description: Unprocessable Entity
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Send budget to customer for approval
-      tags:
-      - service-orders
-  /service-orders/{id}/services:
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: Service Order ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Service data
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/dto.AddServiceToOrderRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/dto.ServiceOrderResponse'
-        "400":
-          description: Bad Request
+            $ref: '#/definitions/dto.SagaResponse'
+        "403":
+          description: Forbidden
           schema:
             $ref: '#/definitions/response.ErrorResponse'
         "404":
@@ -1136,35 +758,8 @@ paths:
             $ref: '#/definitions/response.ErrorResponse'
       security:
       - BearerAuth: []
-      summary: Add a service to a service order
-      tags:
-      - service-orders
-  /service-orders/{id}/start-diagnosis:
-    patch:
-      parameters:
-      - description: Service Order ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/dto.ServiceOrderResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-        "422":
-          description: Unprocessable Entity
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Start diagnosis for a service order
+      summary: 'Get the saga of a service order: current step, commands, replies and
+        compensations'
       tags:
       - service-orders
   /service-orders/{id}/status:
@@ -1189,144 +784,6 @@ paths:
       summary: Get the current status of a service order (public)
       tags:
       - service-orders
-  /service-orders/metrics:
-    get:
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/dto.ServiceOrderMetricsResponse'
-      security:
-      - BearerAuth: []
-      summary: Get average execution time metrics for service orders
-      tags:
-      - service-orders
-  /services:
-    get:
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/dto.ServiceResponse'
-            type: array
-      security:
-      - BearerAuth: []
-      summary: List all services
-      tags:
-      - services
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: Service data
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/dto.CreateServiceRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/dto.ServiceResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-        "422":
-          description: Unprocessable Entity
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Create a new service
-      tags:
-      - services
-  /services/{id}:
-    delete:
-      parameters:
-      - description: Service ID
-        in: path
-        name: id
-        required: true
-        type: string
-      responses:
-        "204":
-          description: No Content
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Delete a service
-      tags:
-      - services
-    get:
-      parameters:
-      - description: Service ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/dto.ServiceResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Get a service by ID
-      tags:
-      - services
-    put:
-      consumes:
-      - application/json
-      parameters:
-      - description: Service ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Service data
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/dto.UpdateServiceRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/dto.ServiceResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Update a service
-      tags:
-      - services
   /vehicles:
     get:
       produces:
