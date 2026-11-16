@@ -43,7 +43,7 @@ export default function (data) {
   const operatorOrders = http.get(`${BASE}/api/v1/service-orders`, authHeaders(data.operatorToken));
   check(operatorOrders, { "operator lists orders 200": (r) => r.status === 200 });
 
-  const metrics = http.get(`${BASE}/api/v1/service-orders/metrics`, authHeaders(data.operatorToken));
+  const metrics = http.get(`${BASE}/api/v1/work-orders/metrics`, authHeaders(data.operatorToken));
   check(metrics, { "operator metrics 200": (r) => r.status === 200 });
 
   const login = http.post(`${BASE}/api/v1/auth/login`, JSON.stringify({ email: EMAIL, password: PASSWORD }), { headers: jsonHeaders });

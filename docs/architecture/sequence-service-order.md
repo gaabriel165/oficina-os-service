@@ -1,154 +1,217 @@
-# Diagrama de Sequência — Ordem de Serviço
+# Diagrama de Sequência — Saga da Ordem de Serviço
 
 | | |
 |---|---|
 | **Status** | Vigente |
-| **Data** | 2026-09-13 |
+| **Data** | 2026-11-16 |
 | **Autor** | Gabriel Camargo |
+| **Relacionado** | [messaging-contracts.md](./messaging-contracts.md), [ADR-010](./adr/ADR-010-saga-orquestrada.md), [ADR-011](./adr/ADR-011-outbox-transacional-e-consumo-idempotente.md) |
 
-## 1. Abertura de OS em chamada única
+Desde a Fase 4 a ordem de serviço é conduzida por uma **saga orquestrada**. O OS Service é o orquestrador: envia comandos ao Execution Service e ao Billing Service por filas SQS e reage às respostas. Cada serviço grava no próprio banco; nenhuma transação atravessa serviços.
 
-Desde a Fase 2 a OS é aberta com cliente, veículo, serviços e peças no mesmo `POST`. Na Fase 3 a requisição passa pelo API Gateway e pelo authorizer, e a aplicação passa a emitir o evento `service_order.created` nos logs estruturados, que alimenta o dashboard de volume diário no New Relic.
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Operador
-    participant GW as API Gateway HTTP API
-    participant AZ as Lambda authorizer
-    participant H as ServiceOrderHandler
-    participant UC as CreateServiceOrderUseCase
-    participant CR as CustomerRepository
-    participant VR as VehicleRepository
-    participant SR as ServiceRepository
-    participant PR as PartRepository
-    participant OR as ServiceOrderRepository
-    participant DB as RDS PostgreSQL
-    participant NR as New Relic
-
-    Operador->>GW: POST /api/v1/service-orders { customer_id, vehicle_id, notes, services[], parts[] }
-    GW->>AZ: valida Bearer JWT
-    AZ-->>GW: isAuthorized = true
-    GW->>H: proxy via NLB (X-Request-ID gerado ou propagado)
-    H->>H: bind e validação do DTO
-    H->>UC: Execute(input)
-
-    UC->>CR: FindByID(customer_id)
-    CR->>DB: SELECT customers
-    DB-->>CR: cliente
-    CR-->>UC: Customer
-
-    UC->>VR: FindByID(vehicle_id)
-    VR->>DB: SELECT vehicles
-    DB-->>VR: veículo
-    VR-->>UC: Vehicle
-    UC->>UC: veículo pertence ao cliente? senão ErrServiceOrderVehicleNotOwnedByCustomer
-
-    UC->>UC: entity.NewServiceOrder(status = received)
-
-    loop para cada service_id
-        UC->>SR: FindByID(service_id)
-        SR->>DB: SELECT services
-        DB-->>SR: serviço
-        UC->>UC: order.AddItem(service)  snapshot de nome e preço
-    end
-
-    loop para cada part
-        UC->>PR: FindByID(part_id)
-        PR->>DB: SELECT parts
-        DB-->>PR: peça
-        UC->>UC: HasSufficientStock? senão ErrPartInsufficientStock
-        UC->>UC: order.AddPart(part, quantity)  snapshot de nome e preço
-    end
-
-    UC->>OR: Create(order)
-    OR->>DB: transação - INSERT service_orders, service_order_items, service_order_parts
-    DB-->>OR: ok
-    OR-->>UC: nil
-    UC-->>H: ServiceOrder
-
-    H->>NR: log JSON event=service_order.created order_id status=received items parts request_id trace_id
-    H-->>Operador: 201 Created { id, status, total_amount, items, parts }
-
-    Note over H,NR: Em caso de erro em qualquer etapa o handler mapeia para 404/422 e emite event=service_order.failed com o motivo
-```
-
-### Tratamento de erros nesta rota
-
-| Erro de domínio | HTTP | Evento emitido |
-|---|---|---|
-| `ErrCustomerNotFound`, `ErrVehicleNotFound`, `ErrServiceNotFound`, `ErrPartNotFound` | 404 | `service_order.failed` |
-| `ErrServiceOrderVehicleNotOwnedByCustomer`, `ErrPartInsufficientStock`, `ErrServiceOrderItemInvalidQty` | 422 | `service_order.failed` |
-| erro de infraestrutura (banco) | 500 sem vazar detalhe | `service_order.failed` |
-
-## 2. Transição de status com notificação e telemetria
-
-Todas as transições (`start-diagnosis`, `send-budget`, `approve-budget`, `reject-budget`, `finish-execution`, `deliver` e o webhook `budget-approval`) seguem o mesmo padrão: a entidade valida a máquina de estados, o repositório persiste, o notificador envia e-mail em modo best-effort e o evento `service_order.status_changed` registra quanto tempo a OS ficou no status anterior.
+## 1. Caminho feliz
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Operador
-    participant GW as API Gateway HTTP API
-    participant H as ServiceOrderHandler
-    participant UC as ApproveBudgetUseCase
-    participant OR as ServiceOrderRepository
-    participant PR as PartRepository
-    participant DB as RDS PostgreSQL
-    participant N as OrderStatusNotifier
-    participant CR as CustomerRepository
-    participant RS as Resend
-    participant NR as New Relic
+    actor Op as Operador / mecânico
+    actor Cl as Cliente
+    participant OS as OS Service (orquestrador)
+    participant QE as SQS execution-commands
+    participant Ex as Execution Service
+    participant QR as SQS saga-replies
+    participant QB as SQS billing-commands
+    participant Bi as Billing Service
+    participant MP as Mercado Pago
 
-    Operador->>GW: PATCH /api/v1/service-orders/{id}/approve-budget  Bearer JWT
-    GW->>H: authorizer ok, proxy via NLB
-    H->>UC: Execute(id)
-    UC->>OR: FindByID(id)
-    OR->>DB: SELECT service_orders + items + parts
-    DB-->>OR: OS em waiting_approval
-    OR-->>UC: ServiceOrder
+    Op->>OS: POST /api/v1/service-orders { customer_id, vehicle_id, notes }
+    OS->>OS: transação: INSERT service_orders, sagas, outbox (RequestDiagnosis)
+    OS-->>Op: 201 { status: received }
+    OS->>QE: RequestDiagnosis
+    QE->>Ex: abre a ordem de trabalho (awaiting_diagnosis)
 
-    UC->>UC: order.ApproveBudget()  waiting_approval -> in_execution, started_at = now
-    Note right of UC: transição inválida devolve ErrServiceOrderInvalidTransition (422)
+    Op->>Ex: PATCH /work-orders/{id}/start-diagnosis
+    Ex->>QR: DiagnosisStarted
+    QR->>OS: OS → in_diagnosis
+    Op->>Ex: POST /work-orders/{id}/services e /parts
+    Op->>Ex: PATCH /work-orders/{id}/complete-diagnosis
+    Ex->>QR: DiagnosisCompleted { services[], parts[] }
+    QR->>OS: saga → passo budget_approval
+    OS->>QB: GenerateBudget { cliente, itens a preço congelado }
+    QB->>Bi: cria o orçamento e envia e-mail
+    Bi->>QR: BudgetGenerated { budget_id, total_amount }
+    QR->>OS: OS → waiting_approval
 
-    loop para cada peça da OS
-        UC->>PR: FindByID(part_id)
-        PR->>DB: SELECT parts
-        UC->>UC: part.DebitStock(quantity)
-        UC->>PR: Update(part)
-        PR->>DB: UPDATE parts SET stock_quantity
-    end
+    Cl->>Bi: PATCH /budgets/{id}/approve
+    Bi->>QR: BudgetApproved
+    QR->>OS: saga → passo payment
+    OS->>QB: RequestPayment
+    QB->>Bi: cria o pagamento
+    Bi->>MP: POST /checkout/preferences
+    MP-->>Bi: init_point
+    Bi->>QR: PaymentRequested { payment_id, checkout_url }
+    QR->>OS: OS → waiting_payment
 
-    UC->>OR: Update(order)
-    OR->>DB: UPDATE service_orders SET status, started_at, updated_at
-    DB-->>OR: ok
+    Cl->>MP: paga no checkout
+    MP->>Bi: POST /api/v1/webhooks/mercadopago (x-signature)
+    Bi->>MP: GET /v1/payments/{id}
+    Bi->>QR: PaymentConfirmed
+    QR->>OS: saga → passo execution
+    OS->>QE: StartExecution
+    QE->>Ex: reserva o estoque (TransactWriteItems)
+    Ex->>QR: ExecutionStarted
+    QR->>OS: OS → in_execution
 
-    UC->>N: Notify(order)
-    N->>CR: FindByID(customer_id)
-    CR->>DB: SELECT customers
-    DB-->>CR: cliente
-    N->>RS: POST /emails  (assunto com status, HTML e texto)
-    alt Resend falhou
-        RS-->>N: erro
-        N->>NR: log JSON event=integration.error integration=resend order_id error
-        Note over N: best-effort: a transição já foi persistida, a falha de e-mail não é propagada
-    else enviado
-        RS-->>N: 200
-    end
+    Op->>Ex: PATCH /work-orders/{id}/finish-execution
+    Ex->>QR: ExecutionFinished
+    QR->>OS: OS → finished, saga → completed
 
-    UC-->>H: ServiceOrder (status = in_execution)
-    H->>NR: log JSON event=service_order.status_changed from_status=waiting_approval to_status=in_execution duration_minutes
-    H-->>Operador: 200 OK { id, status, total_amount, started_at }
+    Op->>OS: PATCH /api/v1/service-orders/{id}/deliver
+    OS-->>Op: 200 { status: delivered }
 ```
 
-### Como o New Relic usa esses eventos
+A cada mudança de status o OS Service envia um e-mail ao cliente (best-effort) e grava uma linha em `service_order_status_history`.
 
-| Requisito do PDF | Evento / fonte | Consulta NRQL (exemplo) |
+## 2. Compensação — estoque insuficiente depois do pagamento
+
+É o caso com mais passos a desfazer: o orçamento foi aprovado e o pagamento confirmado, mas o Execution Service não consegue reservar as peças. O orquestrador cancela a ordem de serviço e envia as compensações **uma por vez, na ordem inversa**; a próxima só sai depois da confirmação da anterior.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant OS as OS Service (orquestrador)
+    participant Ex as Execution Service
+    participant Bi as Billing Service
+    participant MP as Mercado Pago
+    actor Cl as Cliente
+
+    Note over OS,Bi: Pagamento confirmado, saga no passo execution
+    OS->>Ex: StartExecution
+    Ex->>Ex: débito condicional falha: estoque insuficiente
+    Ex-->>OS: ExecutionRejected { reason }
+    OS->>OS: transação: OS → cancelled, saga → compensating,<br/>pendentes = [RefundPayment, CancelBudget, CancelWorkOrder]
+    OS-->>Cl: e-mail: ordem cancelada
+
+    OS->>Bi: RefundPayment
+    Bi->>MP: POST /v1/payments/{id}/refunds (X-Idempotency-Key)
+    Bi-->>OS: PaymentRefunded
+    OS->>Bi: CancelBudget
+    Bi-->>OS: BudgetCancelled
+    OS->>Ex: CancelWorkOrder
+    Ex->>Ex: cancela a ordem de trabalho (sem estoque a devolver)
+    Ex-->>OS: WorkOrderCancelled
+    OS->>OS: saga → compensated
+```
+
+### Compensações por tipo de falha
+
+| Falha | Vem de | Compensações, em ordem |
 |---|---|---|
-| Volume diário de ordens de serviço | `service_order.created` | `SELECT count(*) FROM Log WHERE event = 'service_order.created' TIMESERIES 1 day` |
-| Tempo médio por status (diagnóstico, execução, finalização) | `service_order.status_changed` com `from_status` e `duration_minutes` | `SELECT average(duration_minutes) FROM Log WHERE event = 'service_order.status_changed' FACET from_status` |
-| Erros e falhas nas integrações | `integration.error` | `SELECT count(*) FROM Log WHERE event = 'integration.error' FACET integration` |
-| Alertas para falhas no processamento de OS | `service_order.failed` | condição NRQL `SELECT count(*) FROM Log WHERE event = 'service_order.failed'` acima de 0 em 5 min |
-| Latência das APIs | spans `otelgin` e campo `latency_ms` do log de requisição | `SELECT percentile(duration.ms, 50, 95) FROM Span WHERE service.name = 'oficina-api' FACET http.route` |
+| `DiagnosisFailed` | Execution | nenhuma |
+| `BudgetRejected` | Billing | `CancelWorkOrder` |
+| `PaymentFailed` | Billing | `CancelBudget` → `CancelWorkOrder` |
+| `ExecutionRejected` | Execution | `RefundPayment` → `CancelBudget` → `CancelWorkOrder` |
+| Cancelamento pelo operador (`PATCH /service-orders/{id}/cancel`) ou prazo esgotado | OS | passo `diagnosis`: `CancelWorkOrder`; passo `budget_approval`: `CancelBudget` → `CancelWorkOrder`; passos `payment` e `execution`: `RefundPayment` → `CancelBudget` → `CancelWorkOrder` |
 
-Todos os logs carregam `request_id`, `trace_id` e `span_id`, então a partir de um evento de negócio é possível abrir o trace da requisição e vice-versa (ver [ADR-006](./adr/ADR-006-logs-estruturados-com-correlacao.md)).
+Os comandos de compensação são idempotentes e toleram ausência do recurso: `RefundPayment` sem pagamento confirmado, `CancelBudget` sem orçamento e `CancelWorkOrder` sem ordem de trabalho apenas respondem a confirmação.
+
+## 3. Estados
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    state "Ordem de serviço" as OS {
+        [*] --> received
+        received --> in_diagnosis
+        in_diagnosis --> waiting_approval
+        waiting_approval --> waiting_payment
+        waiting_payment --> in_execution
+        in_execution --> finished
+        finished --> delivered
+        received --> cancelled
+        in_diagnosis --> cancelled
+        waiting_approval --> cancelled
+        waiting_payment --> cancelled
+        in_execution --> cancelled
+        delivered --> [*]
+        cancelled --> [*]
+    }
+```
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    state "Saga" as SG {
+        [*] --> running
+        running --> completed: ExecutionFinished
+        running --> compensating: falha com algo a desfazer
+        running --> compensated: falha sem nada a desfazer
+        compensating --> compensated: última compensação confirmada
+        completed --> [*]
+        compensated --> [*]
+    }
+```
+
+Passos da saga enquanto está `running`: `diagnosis` → `budget_approval` → `payment` → `execution`. O status da ordem só avança: uma resposta atrasada de um passo anterior não faz a ordem voltar.
+
+## 4. Como as garantias entram no fluxo
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Consumidor SQS
+    participant PM as processed_messages
+    participant O as Orquestrador
+    participant DB as PostgreSQL (OS)
+    participant R as Relay do outbox
+    participant Q as SQS
+
+    C->>PM: message_id já processado?
+    alt repetida
+        PM-->>C: sim
+        C->>C: log message.duplicate, apaga da fila
+    else nova
+        C->>O: Handle(reply)
+        O->>DB: carrega saga e ordem
+        O->>O: transição válida para o estado atual?
+        alt resposta fora de ordem ou saga encerrada
+            O->>O: log saga.reply_ignored
+        else aplicada
+            O->>DB: transação: UPDATE service_orders, sagas (WHERE version = n),<br/>INSERT saga_steps, status_history, outbox_messages
+        end
+        C->>PM: registra message_id, apaga da fila
+    end
+
+    loop a cada intervalo
+        R->>DB: SELECT ... FROM outbox_messages WHERE published_at IS NULL FOR UPDATE SKIP LOCKED
+        R->>Q: SendMessage (atributos traceparent, message_type)
+        R->>DB: UPDATE published_at
+    end
+```
+
+| Garantia | Mecanismo |
+|---|---|
+| Nenhum comando perdido | Outbox transacional: a mensagem é gravada com a mudança de estado e publicada depois pelo relay |
+| Sem efeito duplicado | `processed_messages` no consumidor e verificação de estado nos casos de uso |
+| Sem duas réplicas aplicando a mesma resposta | Controle otimista: `UPDATE sagas ... WHERE version = n`; em conflito a mensagem volta à fila |
+| Saga parada não fica presa | `deadline` por passo (`SAGA_STEP_TIMEOUT`, padrão 72 h); o monitor cancela e compensa as vencidas |
+| Mensagem que sempre falha | Depois de 5 entregas vai para a fila `-dlq` |
+| Um trace para o fluxo todo | O contexto W3C é guardado no outbox e viaja nos atributos da mensagem |
+
+## 5. NRQL de referência
+
+| Pergunta | Consulta |
+|---|---|
+| Volume diário de ordens abertas | `SELECT count(*) FROM Log WHERE event = 'saga.started' TIMESERIES 1 day` |
+| Tempo médio em cada status | `SELECT average(numeric(duration_minutes)) FROM Log WHERE event = 'service_order.status_changed' FACET from_status` |
+| Sagas concluídas x compensadas | `SELECT count(*) FROM Log WHERE event IN ('saga.completed', 'saga.compensated') FACET event TIMESERIES` |
+| Motivos de compensação | `SELECT count(*) FROM Log WHERE event = 'saga.compensating' FACET failure_reason` |
+| Avanço da saga por resposta recebida | `SELECT count(*) FROM Log WHERE event = 'saga.step_completed' FACET reply TIMESERIES` |
+| Respostas repetidas ou atrasadas | `SELECT count(*) FROM Log WHERE event IN ('saga.reply_ignored', 'message.duplicate') FACET event` |
+| Mensagens processadas por serviço | `SELECT count(*) FROM Log WHERE event = 'message.processed' FACET service.name, message_type` |
+| Falhas de processamento (alerta) | `SELECT count(*) FROM Log WHERE event = 'message.failed' FACET service.name` |
+| Sagas canceladas por prazo (alerta) | `SELECT sum(sagas) FROM Log WHERE event = 'saga.timed_out'` |
+| Latência por rota e por serviço | `SELECT percentile(duration.ms, 50, 95) FROM Span WHERE service.name LIKE 'oficina-%' FACET service.name, http.route` |
+| Um fluxo de ponta a ponta | `SELECT * FROM Log WHERE order_id = '<id>' SINCE 1 day ago` ou o trace distribuído aberto a partir de qualquer linha |
+
+Todas as linhas levam `request_id`, `trace_id` e `span_id`; as da saga levam `saga_id` e `order_id` (ver [ADR-006](./adr/ADR-006-logs-estruturados-com-correlacao.md)).

@@ -31,7 +31,7 @@ mocks:
 	~/go/bin/darwin_amd64/mockery
 
 swagger:
-	~/go/bin/swag init -g cmd/api/main.go
+	go run github.com/swaggo/swag/cmd/swag@v1.8.12 init -g cmd/api/main.go
 
 scan:
 	trivy fs --scanners vuln,secret,misconfig .

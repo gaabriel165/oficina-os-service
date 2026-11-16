@@ -2,9 +2,11 @@
 
 | | |
 |---|---|
-| **Status** | Aceita |
+| **Status** | Substituída por [ADR-013](./ADR-013-infraestrutura-por-servico-e-irsa.md) |
 | **Data** | 2026-09-13 |
 | **Autor** | Gabriel Camargo |
+
+> **Substituída na Fase 4 (2026-11-16).** O projeto passou a ter seis repositórios e cada microsserviço mantém o Terraform dos próprios recursos; o remote state no S3 continua. O texto abaixo é o registro histórico.
 
 ## Contexto
 

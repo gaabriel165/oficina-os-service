@@ -2,9 +2,11 @@
 
 | | |
 |---|---|
-| **Status** | Aceita |
+| **Status** | Substituída por [ADR-013](./ADR-013-infraestrutura-por-servico-e-irsa.md) |
 | **Data** | 2026-09-13 |
 | **Autor** | Gabriel Camargo |
+
+> **Substituída na Fase 4 (2026-11-16).** O namespace de homologação foi removido: ele consumiria as mesmas filas da produção com outro banco. O texto abaixo é o registro histórico.
 
 ## Contexto
 

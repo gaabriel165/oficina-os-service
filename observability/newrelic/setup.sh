@@ -60,7 +60,7 @@ echo "dashboard guid: $DASHBOARD_GUID"
 
 echo "==> Alert policy"
 RESPONSE="$(graphql 'mutation($accountId: Int!) {
-  alertsPolicyCreate(accountId: $accountId, policy: { name: "Oficina API", incidentPreference: PER_CONDITION }) { id name }
+  alertsPolicyCreate(accountId: $accountId, policy: { name: "Oficina — microsserviços", incidentPreference: PER_CONDITION }) { id name }
 }' "$(jq -n --argjson id "$NEW_RELIC_ACCOUNT_ID" '{accountId: $id}')")"
 fail_on_errors "$RESPONSE" policy
 POLICY_ID="$(echo "$RESPONSE" | jq -r '.data.alertsPolicyCreate.id')"
@@ -90,6 +90,12 @@ create_condition "Erros de integração (Resend / BrasilAPI)" \
   "SELECT count(*) FROM Log WHERE event = 'integration.error'" 2 300
 create_condition "Erros 5xx na API" \
   "SELECT count(*) FROM Log WHERE event = 'http.request' AND numeric(status) >= 500" 0 300
+create_condition "Saga: mensagens com falha de processamento" \
+  "SELECT count(*) FROM Log WHERE event IN ('message.failed', 'message.invalid')" 0 300
+create_condition "Saga: ordens compensadas acima do normal" \
+  "SELECT count(*) FROM Log WHERE event = 'saga.compensated'" 5 900
+create_condition "Saga: passos expirados por prazo" \
+  "SELECT count(*) FROM Log WHERE event = 'saga.timed_out'" 0 300
 create_condition "Latência p95 acima de 1s" \
   "SELECT percentile(numeric(latency_ms), 95) FROM Log WHERE event = 'http.request'" 1000 300
 

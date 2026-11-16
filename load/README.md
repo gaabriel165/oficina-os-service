@@ -6,11 +6,8 @@ Gera carga nas rotas protegidas para demonstrar o HPA escalando e alimentar os d
 # via API Gateway (token emitido pela Lambda auth-cpf)
 k6 run -e BASE_URL=https://<api-id>.execute-api.us-east-1.amazonaws.com load/load-test.js
 
-# direto no NLB (token via login de operador)
-k6 run -e BASE_URL=http://<nlb-host> load/load-test.js
-
 # acompanhar a autoescala
 kubectl get hpa -n oficina-api -w
 ```
 
-Rampa: 10 → 30 → 60 usuários virtuais em 4,5 minutos. Cada iteração lista OS como cliente (token da Lambda de CPF, só as próprias) e como operador, consulta métricas como operador e faz um login (bcrypt consome CPU).
+Rampa: 10 → 30 → 60 usuários virtuais em 4,5 minutos. Cada iteração lista OS como cliente (token da Lambda de CPF, só as próprias) e como operador, consulta as métricas de execução no Execution Service (roteadas pelo gateway) e faz um login (bcrypt consome CPU).

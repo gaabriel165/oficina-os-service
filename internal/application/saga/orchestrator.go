@@ -19,6 +19,8 @@ const (
 	eventSagaCompensated   = "saga.compensated"
 	eventSagaReplyIgnored  = "saga.reply_ignored"
 
+	eventServiceOrderStatusChanged = "service_order.status_changed"
+
 	reasonStepTimedOut      = "saga step timed out"
 	defaultOverdueBatchSize = 20
 )
@@ -157,6 +159,7 @@ func (o *Orchestrator) persist(
 
 	logSaga(ctx, eventForStatus(saga.Status()), saga, attrs...)
 	if order.Status() != previousStatus {
+		logStatusChange(ctx, saga, order)
 		o.notifier.Notify(order)
 	}
 	return nil
@@ -220,6 +223,24 @@ func eventForStatus(status valueobject.SagaStatus) string {
 	default:
 		return eventSagaStepCompleted
 	}
+}
+
+func logStatusChange(ctx context.Context, saga *entity.Saga, order *entity.ServiceOrder) {
+	fields := []any{
+		slog.String("event", eventServiceOrderStatusChanged),
+		slog.String("order_id", order.ID()),
+		slog.String("saga_id", saga.ID()),
+		slog.String("status", order.Status().String()),
+		slog.Float64("total_amount", order.TotalAmount()),
+	}
+	if transition := order.LastTransition(); transition != nil {
+		fields = append(fields,
+			slog.String("from_status", transition.From.String()),
+			slog.String("to_status", transition.To.String()),
+			slog.Float64("duration_minutes", transition.Duration.Minutes()),
+		)
+	}
+	slog.InfoContext(ctx, eventServiceOrderStatusChanged, fields...)
 }
 
 func logSaga(ctx context.Context, event string, saga *entity.Saga, attrs ...any) {

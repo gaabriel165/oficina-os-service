@@ -4,8 +4,8 @@ Assets de monitoramento versionados como código. Aplicados uma vez por conta co
 
 | Sinal | Origem | Como chega |
 |---|---|---|
-| Logs JSON (`http.request`, `service_order.*`, `integration.error`) | stdout dos pods | Fluent Bit do `nri-bundle` (instalado pelo CD do `oficina-infra-k8s`) → Logs, com os atributos JSON extraídos |
-| Traces (spans HTTP e `gorm.*`) | aplicação (`otelgin` + plugin GORM) | OTLP/HTTP direto para `otlp.nr-data.net:4318` (`OTEL_EXPORTER_OTLP_HEADERS=api-key=<license>`) |
+| Logs JSON (`http.request`, `service_order.*`, `saga.*`, `message.*`, `payment.*`, `budget.*`, `integration.error`) | stdout dos pods dos três microsserviços | Fluent Bit do `nri-bundle` (instalado pelo CD do `oficina-infra-k8s`) → Logs, com os atributos JSON extraídos |
+| Traces (spans HTTP, `gorm.*` e o contexto propagado pelas mensagens SQS) | os três microsserviços (`otelgin`, plugin GORM, W3C Trace Context nos atributos da mensagem) | OTLP/HTTP direto para `otlp.nr-data.net:4318` (`OTEL_EXPORTER_OTLP_HEADERS=api-key=<license>`) |
 | CPU, memória, HPA, eventos | `nri-bundle` (infra agent, kube-state-metrics) | Kubernetes integration |
 | Uptime | Synthetics ping monitor `oficina-api-health` | Criado pelo script |
 
@@ -26,10 +26,13 @@ ONLY_SYNTHETICS=true HEALTH_URL=https://<api-id>.execute-api.us-east-1.amazonaws
 
 Cria:
 
-- **Dashboard "Oficina API — Operação"** (`dashboard.json`): volume diário de OS, tempo médio por status, falhas de OS, erros de integração, latência p50/p95/p99 e por rota, throughput, status HTTP, tempo em banco, CPU/memória por pod, réplicas do HPA, CPU dos nós e uptime.
-- **Política de alertas "Oficina API"** com condições NRQL (agregação `CADENCE`, janela de 60 s e atraso de 120 s — necessária porque eventos como `service_order.failed` são esparsos e, com `EVENT_FLOW`, a janela só fecharia quando chegasse o próximo evento):
+- **Dashboard "Oficina — Operação dos microsserviços"** (`dashboard.json`): página de saga e mensageria (sagas iniciadas, concluídas e compensadas, motivos de compensação, mensagens por serviço e por tipo, falhas e duplicadas, duração do trace por serviço, pagamentos e orçamentos), volume diário de OS, tempo médio por status, falhas de OS, erros de integração, latência p50/p95/p99 e por rota, throughput, status HTTP, tempo em banco, CPU/memória por pod, réplicas do HPA, CPU dos nós e uptime.
+- **Política de alertas "Oficina — microsserviços"** com condições NRQL (agregação `CADENCE`, janela de 60 s e atraso de 120 s — necessária porque eventos como `service_order.failed` são esparsos e, com `EVENT_FLOW`, a janela só fecharia quando chegasse o próximo evento):
   - falha no processamento de OS (`service_order.failed` > 0 em 5 min);
   - erros de integração (`integration.error` > 2 em 5 min);
+  - mensagens da saga com falha de processamento (`message.failed` ou `message.invalid` > 0 em 5 min);
+  - sagas compensadas acima do normal (`saga.compensated` > 5 em 15 min);
+  - passos da saga expirados por prazo (`saga.timed_out` > 0 em 5 min);
   - erros 5xx na API;
   - latência p95 acima de 1 s.
 - **Notificação por e-mail** (destination + channel + workflow ligado à política).
@@ -44,6 +47,10 @@ SELECT count(*) FROM Log WHERE event = 'service_order.created' FACET dateOf(time
 SELECT average(numeric(duration_minutes)) FROM Log WHERE event = 'service_order.status_changed' FACET from_status
 -- erros nas integrações
 SELECT count(*) FROM Log WHERE event = 'integration.error' FACET integration, operation TIMESERIES
+-- caminho de uma ordem de serviço pelos três serviços
+SELECT timestamp, service.name, event, message_type, reply FROM Log WHERE order_id = '<id da OS>' ORDER BY timestamp
+-- trace distribuído de uma saga
+SELECT service.name, name, duration.ms FROM Span WHERE trace.id = '<trace_id>' ORDER BY timestamp
 -- correlação de uma requisição
 SELECT * FROM Log WHERE request_id = '<X-Request-ID>' ORDER BY timestamp
 ```

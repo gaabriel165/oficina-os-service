@@ -379,101 +379,29 @@ const docTemplate = `{
                 }
             }
         },
-        "/parts": {
+        "/internal/customers/by-document/{document}": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
+                "description": "Used by the authentication Lambda instead of reading the customers table. Requires the X-Internal-Secret header and is not routed by the API Gateway.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "parts"
+                    "internal"
                 ],
-                "summary": "List all parts",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/dto.PartResponse"
-                            }
-                        }
-                    }
-                }
-            },
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "parts"
-                ],
-                "summary": "Create a new part",
-                "parameters": [
-                    {
-                        "description": "Part data",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/dto.CreatePartRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/dto.PartResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    },
-                    "422": {
-                        "description": "Unprocessable Entity",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/parts/{id}": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "parts"
-                ],
-                "summary": "Get a part by ID",
+                "summary": "Find a customer by CPF or CNPJ (service-to-service)",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Part ID",
-                        "name": "id",
+                        "description": "CPF or CNPJ, digits only or formatted",
+                        "name": "document",
                         "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Shared service secret",
+                        "name": "X-Internal-Secret",
+                        "in": "header",
                         "required": true
                     }
                 ],
@@ -481,148 +409,11 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.PartResponse"
+                            "$ref": "#/definitions/dto.CustomerIdentityResponse"
                         }
                     },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "parts"
-                ],
-                "summary": "Update a part",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Part ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Part data",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/dto.UpdatePartRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/dto.PartResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "tags": [
-                    "parts"
-                ],
-                "summary": "Delete a part",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Part ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "No Content"
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/parts/{id}/stock": {
-            "patch": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "parts"
-                ],
-                "summary": "Add stock quantity to a part",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Part ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Stock data",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/dto.UpdateStockRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/dto.PartResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/response.ErrorResponse"
                         }
@@ -669,6 +460,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "The order is created as received and the diagnosis is requested from the Execution Service. Services and parts are added by the mechanic during diagnosis.",
                 "consumes": [
                     "application/json"
                 ],
@@ -678,7 +470,7 @@ const docTemplate = `{
                 "tags": [
                     "service-orders"
                 ],
-                "summary": "Create a new service order",
+                "summary": "Open a service order and start its saga",
                 "parameters": [
                     {
                         "description": "Service order data",
@@ -708,29 +500,11 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/response.ErrorResponse"
                         }
-                    }
-                }
-            }
-        },
-        "/service-orders/metrics": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "service-orders"
-                ],
-                "summary": "Get average execution time metrics for service orders",
-                "responses": {
-                    "200": {
-                        "description": "OK",
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
                         "schema": {
-                            "$ref": "#/definitions/dto.ServiceOrderMetricsResponse"
+                            "$ref": "#/definitions/response.ErrorResponse"
                         }
                     }
                 }
@@ -782,54 +556,13 @@ const docTemplate = `{
                 }
             }
         },
-        "/service-orders/{id}/approve-budget": {
+        "/service-orders/{id}/cancel": {
             "patch": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Customers authenticated by CPF can only approve their own order.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "service-orders"
-                ],
-                "summary": "Approve the budget and start execution",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Service Order ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ServiceOrderResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    },
-                    "422": {
-                        "description": "Unprocessable Entity",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/service-orders/{id}/budget-approval": {
-            "post": {
                 "consumes": [
                     "application/json"
                 ],
@@ -839,15 +572,8 @@ const docTemplate = `{
                 "tags": [
                     "service-orders"
                 ],
-                "summary": "Receive an external budget approval or rejection notification",
+                "summary": "Cancel a service order, compensating the steps already completed",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Webhook shared secret",
-                        "name": "X-Webhook-Secret",
-                        "in": "header",
-                        "required": true
-                    },
                     {
                         "type": "string",
                         "description": "Service Order ID",
@@ -856,12 +582,12 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Budget decision",
+                        "description": "Cancellation reason",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.BudgetApprovalWebhookRequest"
+                            "$ref": "#/definitions/dto.CancelServiceOrderRequest"
                         }
                     }
                 ],
@@ -874,12 +600,6 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/response.ErrorResponse"
                         }
@@ -912,7 +632,7 @@ const docTemplate = `{
                 "tags": [
                     "service-orders"
                 ],
-                "summary": "Mark vehicle as delivered to customer",
+                "summary": "Deliver the vehicle to the customer",
                 "parameters": [
                     {
                         "type": "string",
@@ -944,8 +664,8 @@ const docTemplate = `{
                 }
             }
         },
-        "/service-orders/{id}/finish-execution": {
-            "patch": {
+        "/service-orders/{id}/history": {
+            "get": {
                 "security": [
                     {
                         "BearerAuth": []
@@ -957,7 +677,7 @@ const docTemplate = `{
                 "tags": [
                     "service-orders"
                 ],
-                "summary": "Mark execution as finished",
+                "summary": "Get the status history of a service order",
                 "parameters": [
                     {
                         "type": "string",
@@ -971,222 +691,14 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.ServiceOrderResponse"
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/dto.StatusChangeResponse"
+                            }
                         }
                     },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    },
-                    "422": {
-                        "description": "Unprocessable Entity",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/service-orders/{id}/parts": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "service-orders"
-                ],
-                "summary": "Add a part to a service order",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Service Order ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Part data",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/dto.AddPartToOrderRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ServiceOrderResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    },
-                    "422": {
-                        "description": "Unprocessable Entity",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/service-orders/{id}/reject-budget": {
-            "patch": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Customers authenticated by CPF can only reject their own order.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "service-orders"
-                ],
-                "summary": "Reject the budget and cancel the order",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Service Order ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ServiceOrderResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    },
-                    "422": {
-                        "description": "Unprocessable Entity",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/service-orders/{id}/send-budget": {
-            "patch": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "service-orders"
-                ],
-                "summary": "Send budget to customer for approval",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Service Order ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ServiceOrderResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    },
-                    "422": {
-                        "description": "Unprocessable Entity",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/service-orders/{id}/services": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "service-orders"
-                ],
-                "summary": "Add a service to a service order",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Service Order ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Service data",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/dto.AddServiceToOrderRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ServiceOrderResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/response.ErrorResponse"
                         }
@@ -1200,8 +712,8 @@ const docTemplate = `{
                 }
             }
         },
-        "/service-orders/{id}/start-diagnosis": {
-            "patch": {
+        "/service-orders/{id}/saga": {
+            "get": {
                 "security": [
                     {
                         "BearerAuth": []
@@ -1213,7 +725,7 @@ const docTemplate = `{
                 "tags": [
                     "service-orders"
                 ],
-                "summary": "Start diagnosis for a service order",
+                "summary": "Get the saga of a service order: current step, commands, replies and compensations",
                 "parameters": [
                     {
                         "type": "string",
@@ -1227,17 +739,17 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dto.ServiceOrderResponse"
+                            "$ref": "#/definitions/dto.SagaResponse"
                         }
                     },
-                    "404": {
-                        "description": "Not Found",
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/response.ErrorResponse"
                         }
                     },
-                    "422": {
-                        "description": "Unprocessable Entity",
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/response.ErrorResponse"
                         }
@@ -1269,206 +781,6 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/dto.ServiceOrderStatusResponse"
                         }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/services": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "services"
-                ],
-                "summary": "List all services",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/dto.ServiceResponse"
-                            }
-                        }
-                    }
-                }
-            },
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "services"
-                ],
-                "summary": "Create a new service",
-                "parameters": [
-                    {
-                        "description": "Service data",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/dto.CreateServiceRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ServiceResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    },
-                    "422": {
-                        "description": "Unprocessable Entity",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/services/{id}": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "services"
-                ],
-                "summary": "Get a service by ID",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Service ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ServiceResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "services"
-                ],
-                "summary": "Update a service",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Service ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Service data",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/dto.UpdateServiceRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/dto.ServiceResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "tags": [
-                    "services"
-                ],
-                "summary": "Delete a service",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Service ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "No Content"
                     },
                     "404": {
                         "description": "Not Found",
@@ -1687,44 +999,14 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "dto.AddPartToOrderRequest": {
+        "dto.CancelServiceOrderRequest": {
             "type": "object",
             "required": [
-                "part_id",
-                "quantity"
+                "reason"
             ],
             "properties": {
-                "part_id": {
+                "reason": {
                     "type": "string"
-                },
-                "quantity": {
-                    "type": "integer"
-                }
-            }
-        },
-        "dto.AddServiceToOrderRequest": {
-            "type": "object",
-            "required": [
-                "service_id"
-            ],
-            "properties": {
-                "service_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.BudgetApprovalWebhookRequest": {
-            "type": "object",
-            "required": [
-                "decision"
-            ],
-            "properties": {
-                "decision": {
-                    "type": "string",
-                    "enum": [
-                        "approved",
-                        "rejected"
-                    ]
                 }
             }
         },
@@ -1763,43 +1045,6 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.CreatePartRequest": {
-            "type": "object",
-            "required": [
-                "name",
-                "unit_price"
-            ],
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "stock_quantity": {
-                    "type": "integer",
-                    "minimum": 0
-                },
-                "unit_price": {
-                    "type": "number"
-                }
-            }
-        },
-        "dto.CreateServiceOrderPartRequest": {
-            "type": "object",
-            "required": [
-                "part_id",
-                "quantity"
-            ],
-            "properties": {
-                "part_id": {
-                    "type": "string"
-                },
-                "quantity": {
-                    "type": "integer"
-                }
-            }
-        },
         "dto.CreateServiceOrderRequest": {
             "type": "object",
             "required": [
@@ -1813,41 +1058,7 @@ const docTemplate = `{
                 "notes": {
                     "type": "string"
                 },
-                "parts": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/dto.CreateServiceOrderPartRequest"
-                    }
-                },
-                "services": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
                 "vehicle_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.CreateServiceRequest": {
-            "type": "object",
-            "required": [
-                "estimated_minutes",
-                "labor_price",
-                "name"
-            ],
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "estimated_minutes": {
-                    "type": "integer"
-                },
-                "labor_price": {
-                    "type": "number"
-                },
-                "name": {
                     "type": "string"
                 }
             }
@@ -1892,6 +1103,20 @@ const docTemplate = `{
                 },
                 "year": {
                     "type": "integer"
+                }
+            }
+        },
+        "dto.CustomerIdentityResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
                 }
             }
         },
@@ -1942,103 +1167,76 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.PartResponse": {
+        "dto.SagaLogEntryResponse": {
             "type": "object",
             "properties": {
-                "created_at": {
+                "detail": {
                     "type": "string"
                 },
-                "description": {
-                    "type": "string"
-                },
-                "id": {
+                "kind": {
                     "type": "string"
                 },
                 "name": {
                     "type": "string"
                 },
-                "stock_quantity": {
-                    "type": "integer"
-                },
-                "unit_price": {
-                    "type": "number"
-                },
-                "updated_at": {
+                "occurred_at": {
                     "type": "string"
                 }
             }
         },
-        "dto.ServiceMetricRowResponse": {
+        "dto.SagaResponse": {
             "type": "object",
             "properties": {
-                "avg_minutes": {
-                    "type": "number"
-                },
-                "completed_orders": {
-                    "type": "integer"
-                },
-                "service_name": {
+                "deadline": {
                     "type": "string"
-                }
-            }
-        },
-        "dto.ServiceOrderItemResponse": {
-            "type": "object",
-            "properties": {
+                },
+                "failure_reason": {
+                    "type": "string"
+                },
+                "finished_at": {
+                    "type": "string"
+                },
                 "id": {
                     "type": "string"
                 },
-                "labor_price": {
-                    "type": "number"
-                },
-                "service_id": {
-                    "type": "string"
-                },
-                "service_name": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.ServiceOrderMetricsResponse": {
-            "type": "object",
-            "properties": {
-                "by_service": {
+                "log": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/dto.ServiceMetricRowResponse"
+                        "$ref": "#/definitions/dto.SagaLogEntryResponse"
                     }
                 },
-                "overall_avg_minutes": {
-                    "type": "number"
-                }
-            }
-        },
-        "dto.ServiceOrderPartResponse": {
-            "type": "object",
-            "properties": {
-                "id": {
+                "order_id": {
                     "type": "string"
                 },
-                "part_id": {
+                "pending_compensations": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "started_at": {
                     "type": "string"
                 },
-                "part_name": {
+                "status": {
                     "type": "string"
                 },
-                "quantity": {
-                    "type": "integer"
-                },
-                "total": {
-                    "type": "number"
-                },
-                "unit_price": {
-                    "type": "number"
+                "step": {
+                    "type": "string"
                 }
             }
         },
         "dto.ServiceOrderResponse": {
             "type": "object",
             "properties": {
+                "budget_id": {
+                    "type": "string"
+                },
+                "cancellation_reason": {
+                    "type": "string"
+                },
+                "checkout_url": {
+                    "type": "string"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -2051,20 +1249,11 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
-                "items": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/dto.ServiceOrderItemResponse"
-                    }
-                },
                 "notes": {
                     "type": "string"
                 },
-                "parts": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/dto.ServiceOrderPartResponse"
-                    }
+                "payment_id": {
+                    "type": "string"
                 },
                 "started_at": {
                     "type": "string"
@@ -2100,29 +1289,20 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.ServiceResponse": {
+        "dto.StatusChangeResponse": {
             "type": "object",
             "properties": {
-                "created_at": {
+                "from": {
+                    "$ref": "#/definitions/valueobject.OrderStatus"
+                },
+                "occurred_at": {
                     "type": "string"
                 },
-                "description": {
+                "reason": {
                     "type": "string"
                 },
-                "estimated_minutes": {
-                    "type": "integer"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "labor_price": {
-                    "type": "number"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
+                "to": {
+                    "$ref": "#/definitions/valueobject.OrderStatus"
                 }
             }
         },
@@ -2150,57 +1330,6 @@ const docTemplate = `{
                 },
                 "phone": {
                     "type": "string"
-                }
-            }
-        },
-        "dto.UpdatePartRequest": {
-            "type": "object",
-            "required": [
-                "name",
-                "unit_price"
-            ],
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "unit_price": {
-                    "type": "number"
-                }
-            }
-        },
-        "dto.UpdateServiceRequest": {
-            "type": "object",
-            "required": [
-                "estimated_minutes",
-                "labor_price",
-                "name"
-            ],
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "estimated_minutes": {
-                    "type": "integer"
-                },
-                "labor_price": {
-                    "type": "number"
-                },
-                "name": {
-                    "type": "string"
-                }
-            }
-        },
-        "dto.UpdateStockRequest": {
-            "type": "object",
-            "required": [
-                "quantity"
-            ],
-            "properties": {
-                "quantity": {
-                    "type": "integer"
                 }
             }
         },
@@ -2266,6 +1395,7 @@ const docTemplate = `{
                 "received",
                 "in_diagnosis",
                 "waiting_approval",
+                "waiting_payment",
                 "in_execution",
                 "finished",
                 "delivered",
@@ -2275,6 +1405,7 @@ const docTemplate = `{
                 "OrderStatusReceived",
                 "OrderStatusInDiagnosis",
                 "OrderStatusWaitingApproval",
+                "OrderStatusWaitingPayment",
                 "OrderStatusInExecution",
                 "OrderStatusFinished",
                 "OrderStatusDelivered",

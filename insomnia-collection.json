@@ -1,1023 +1,949 @@
 {
   "_type": "export",
   "__export_format": 4,
-  "__export_date": "2026-05-01T13:00:00.000Z",
-  "__export_source": "insomnia.desktop.app:v12.5.0",
+  "__export_date": "2026-11-16T22:40:00.000Z",
+  "__export_source": "insomnia.desktop.app:v9.3.3",
   "resources": [
     {
       "_id": "wrk_oficina",
       "_type": "workspace",
       "parentId": null,
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "name": "Tech Challenge — Oficina Mecânica",
-      "description": "Fluxo sugerido:\n1. Auth: Register -> Login -> copie o token para a variável 'token'\n2. Customers: Create -> copie o id para 'customer_id'\n3. Vehicles: Create -> copie o id para 'vehicle_id'\n4. Parts: Create -> copie o id para 'part_id'\n5. Services: Create -> copie o id para 'service_id'\n6. Service Orders: Create (aceita services/parts na abertura) -> Start Diagnosis -> Add Service -> Add Part -> Send Budget -> Approve/Reject Budget (ou via webhook externo) -> Finish Execution -> Deliver",
+      "name": "Tech Challenge — Oficina Mecânica (Fase 4)",
+      "description": "Três microsserviços: OS Service, Billing Service e Execution Service.",
       "scope": "collection"
+    },
+    {
+      "_id": "env_base",
+      "_type": "environment",
+      "parentId": "wrk_oficina",
+      "name": "Base Environment",
+      "data": {}
     },
     {
       "_id": "env_local",
       "_type": "environment",
-      "parentId": "wrk_oficina",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "name": "Local",
+      "parentId": "env_base",
+      "name": "Local (make system/up)",
       "data": {
-        "base_url": "http://localhost:8080/api/v1",
+        "os_url": "http://localhost:8080/api/v1",
+        "billing_url": "http://localhost:8081/api/v1",
+        "execution_url": "http://localhost:8082/api/v1",
+        "gateway_url": "http://localhost:8080",
         "token": "",
         "customer_id": "",
         "vehicle_id": "",
-        "part_id": "",
-        "service_id": "",
         "order_id": "",
-        "webhook_secret": ""
-      },
-      "dataPropertyOrder": null,
-      "color": null,
-      "isPrivate": false,
-      "metaSortKey": 1
+        "service_id": "",
+        "part_id": "",
+        "budget_id": "",
+        "payment_id": ""
+      }
     },
-
     {
-      "_id": "fld_auth",
+      "_id": "env_aws",
+      "_type": "environment",
+      "parentId": "env_base",
+      "name": "AWS (API Gateway)",
+      "data": {
+        "os_url": "https://API_ID.execute-api.us-east-1.amazonaws.com/api/v1",
+        "billing_url": "https://API_ID.execute-api.us-east-1.amazonaws.com/api/v1",
+        "execution_url": "https://API_ID.execute-api.us-east-1.amazonaws.com/api/v1",
+        "gateway_url": "https://API_ID.execute-api.us-east-1.amazonaws.com",
+        "token": "",
+        "customer_id": "",
+        "vehicle_id": "",
+        "order_id": "",
+        "service_id": "",
+        "part_id": "",
+        "budget_id": "",
+        "payment_id": ""
+      }
+    },
+    {
+      "_id": "fld_01",
       "_type": "request_group",
       "parentId": "wrk_oficina",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "name": "Auth",
-      "description": "Endpoints públicos de autenticação",
-      "environment": {},
-      "environmentPropertyOrder": null,
-      "metaSortKey": 1000
+      "name": "0. Autenticação",
+      "description": "",
+      "metaSortKey": 100
     },
     {
-      "_id": "req_register",
+      "_id": "req_001",
       "_type": "request",
-      "parentId": "fld_auth",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/auth/register",
-      "name": "Register",
-      "description": "Cria um novo usuário. Resposta 201 sem body.",
+      "parentId": "fld_01",
+      "name": "Registrar operador",
       "method": "POST",
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n\t\"email\": \"admin@workshop.com\",\n\t\"password\": \"secret123\"\n}"
-      },
-      "parameters": [],
-      "headers": [{ "name": "Content-Type", "value": "application/json" }],
-      "authentication": {},
-      "metaSortKey": 1100,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
-    },
-    {
-      "_id": "req_login",
-      "_type": "request",
-      "parentId": "fld_auth",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/auth/login",
-      "name": "Login",
-      "description": "Autentica e retorna JWT. Copie o valor de 'token' da resposta e cole na variável de ambiente 'token'.",
-      "method": "POST",
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n\t\"email\": \"admin@workshop.com\",\n\t\"password\": \"secret123\"\n}"
-      },
-      "parameters": [],
-      "headers": [{ "name": "Content-Type", "value": "application/json" }],
-      "authentication": {},
-      "metaSortKey": 1200,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
-    },
-
-    {
-      "_id": "fld_customers",
-      "_type": "request_group",
-      "parentId": "wrk_oficina",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "name": "Customers",
-      "description": "CRUD de clientes. Aceita CPF ou CNPJ.",
-      "environment": {},
-      "environmentPropertyOrder": null,
-      "metaSortKey": 2000
-    },
-    {
-      "_id": "req_customer_create",
-      "_type": "request",
-      "parentId": "fld_customers",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/customers",
-      "name": "Create Customer (CPF)",
-      "description": "Cria um cliente com CPF. Copie o 'id' da resposta para a variável 'customer_id'.",
-      "method": "POST",
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n\t\"name\": \"João da Silva\",\n\t\"document\": \"529.982.247-25\",\n\t\"phone\": \"11999999999\",\n\t\"email\": \"joao.silva@email.com\"\n}"
-      },
-      "parameters": [],
-      "headers": [{ "name": "Content-Type", "value": "application/json" }],
-      "authentication": { "type": "bearer", "disabled": false, "token": "{{ token }}" },
-      "metaSortKey": 2100,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
-    },
-    {
-      "_id": "req_customer_create_cnpj",
-      "_type": "request",
-      "parentId": "fld_customers",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/customers",
-      "name": "Create Customer (CNPJ)",
-      "description": "Cria um cliente pessoa jurídica. CNPJ é validado algoritmicamente e consultado na Brasil API (não-bloqueante).",
-      "method": "POST",
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n\t\"name\": \"Empresa XPTO Ltda\",\n\t\"document\": \"11.222.333/0001-81\",\n\t\"phone\": \"1133334444\",\n\t\"email\": \"contato@xpto.com.br\"\n}"
-      },
-      "parameters": [],
-      "headers": [{ "name": "Content-Type", "value": "application/json" }],
-      "authentication": { "type": "bearer", "disabled": false, "token": "{{ token }}" },
-      "metaSortKey": 2150,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
-    },
-    {
-      "_id": "req_customer_list",
-      "_type": "request",
-      "parentId": "fld_customers",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/customers",
-      "name": "List Customers",
-      "description": "Retorna todos os clientes.",
-      "method": "GET",
-      "body": {},
-      "parameters": [],
-      "headers": [],
-      "authentication": { "type": "bearer", "disabled": false, "token": "{{ token }}" },
-      "metaSortKey": 2200,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
-    },
-    {
-      "_id": "req_customer_get",
-      "_type": "request",
-      "parentId": "fld_customers",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/customers/{{ customer_id }}",
-      "name": "Get Customer",
-      "description": "Busca um cliente pelo ID.",
-      "method": "GET",
-      "body": {},
-      "parameters": [],
-      "headers": [],
-      "authentication": { "type": "bearer", "disabled": false, "token": "{{ token }}" },
-      "metaSortKey": 2300,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
-    },
-    {
-      "_id": "req_customer_update",
-      "_type": "request",
-      "parentId": "fld_customers",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/customers/{{ customer_id }}",
-      "name": "Update Customer",
-      "description": "Atualiza nome, telefone e email do cliente. Documento não pode ser alterado.",
-      "method": "PUT",
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n\t\"name\": \"João da Silva Atualizado\",\n\t\"phone\": \"11988888888\",\n\t\"email\": \"joao.novo@email.com\"\n}"
-      },
-      "parameters": [],
-      "headers": [{ "name": "Content-Type", "value": "application/json" }],
-      "authentication": { "type": "bearer", "disabled": false, "token": "{{ token }}" },
-      "metaSortKey": 2400,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
-    },
-    {
-      "_id": "req_customer_delete",
-      "_type": "request",
-      "parentId": "fld_customers",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/customers/{{ customer_id }}",
-      "name": "Delete Customer",
-      "description": "Remove um cliente. Retorna 204 sem body.",
-      "method": "DELETE",
-      "body": {},
-      "parameters": [],
-      "headers": [],
-      "authentication": { "type": "bearer", "disabled": false, "token": "{{ token }}" },
-      "metaSortKey": 2500,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
-    },
-
-    {
-      "_id": "fld_vehicles",
-      "_type": "request_group",
-      "parentId": "wrk_oficina",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "name": "Vehicles",
-      "description": "CRUD de veículos. Aceita placa antiga (ABC-1234) ou Mercosul (ABC1D23).",
-      "environment": {},
-      "environmentPropertyOrder": null,
-      "metaSortKey": 3000
-    },
-    {
-      "_id": "req_vehicle_create",
-      "_type": "request",
-      "parentId": "fld_vehicles",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/vehicles",
-      "name": "Create Vehicle",
-      "description": "Cria um veículo vinculado ao cliente. Copie o 'id' da resposta para a variável 'vehicle_id'.",
-      "method": "POST",
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n\t\"customer_id\": \"{{ customer_id }}\",\n\t\"plate\": \"ABC-1234\",\n\t\"brand\": \"Toyota\",\n\t\"model\": \"Corolla\",\n\t\"year\": 2020\n}"
-      },
-      "parameters": [],
-      "headers": [{ "name": "Content-Type", "value": "application/json" }],
-      "authentication": { "type": "bearer", "disabled": false, "token": "{{ token }}" },
-      "metaSortKey": 3100,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
-    },
-    {
-      "_id": "req_vehicle_create_mercosul",
-      "_type": "request",
-      "parentId": "fld_vehicles",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/vehicles",
-      "name": "Create Vehicle (Mercosul plate)",
-      "description": "Cria um veículo com placa no formato Mercosul.",
-      "method": "POST",
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n\t\"customer_id\": \"{{ customer_id }}\",\n\t\"plate\": \"BRA2E19\",\n\t\"brand\": \"Volkswagen\",\n\t\"model\": \"Polo\",\n\t\"year\": 2023\n}"
-      },
-      "parameters": [],
-      "headers": [{ "name": "Content-Type", "value": "application/json" }],
-      "authentication": { "type": "bearer", "disabled": false, "token": "{{ token }}" },
-      "metaSortKey": 3150,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
-    },
-    {
-      "_id": "req_vehicle_list",
-      "_type": "request",
-      "parentId": "fld_vehicles",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/vehicles",
-      "name": "List Vehicles",
-      "description": "Retorna todos os veículos.",
-      "method": "GET",
-      "body": {},
-      "parameters": [],
-      "headers": [],
-      "authentication": { "type": "bearer", "disabled": false, "token": "{{ token }}" },
-      "metaSortKey": 3200,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
-    },
-    {
-      "_id": "req_vehicle_get",
-      "_type": "request",
-      "parentId": "fld_vehicles",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/vehicles/{{ vehicle_id }}",
-      "name": "Get Vehicle",
-      "description": "Busca um veículo pelo ID.",
-      "method": "GET",
-      "body": {},
-      "parameters": [],
-      "headers": [],
-      "authentication": { "type": "bearer", "disabled": false, "token": "{{ token }}" },
-      "metaSortKey": 3300,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
-    },
-    {
-      "_id": "req_vehicle_update",
-      "_type": "request",
-      "parentId": "fld_vehicles",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/vehicles/{{ vehicle_id }}",
-      "name": "Update Vehicle",
-      "description": "Atualiza marca, modelo e ano. Placa não pode ser alterada.",
-      "method": "PUT",
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n\t\"brand\": \"Toyota\",\n\t\"model\": \"Corolla XEi\",\n\t\"year\": 2021\n}"
-      },
-      "parameters": [],
-      "headers": [{ "name": "Content-Type", "value": "application/json" }],
-      "authentication": { "type": "bearer", "disabled": false, "token": "{{ token }}" },
-      "metaSortKey": 3400,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
-    },
-    {
-      "_id": "req_vehicle_delete",
-      "_type": "request",
-      "parentId": "fld_vehicles",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/vehicles/{{ vehicle_id }}",
-      "name": "Delete Vehicle",
-      "description": "Remove um veículo. Retorna 204 sem body.",
-      "method": "DELETE",
-      "body": {},
-      "parameters": [],
-      "headers": [],
-      "authentication": { "type": "bearer", "disabled": false, "token": "{{ token }}" },
-      "metaSortKey": 3500,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
-    },
-
-    {
-      "_id": "fld_parts",
-      "_type": "request_group",
-      "parentId": "wrk_oficina",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "name": "Parts",
-      "description": "CRUD de peças e controle de estoque.",
-      "environment": {},
-      "environmentPropertyOrder": null,
-      "metaSortKey": 4000
-    },
-    {
-      "_id": "req_part_create",
-      "_type": "request",
-      "parentId": "fld_parts",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/parts",
-      "name": "Create Part",
-      "description": "Cria uma peça com estoque inicial. Copie o 'id' da resposta para a variável 'part_id'.",
-      "method": "POST",
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n\t\"name\": \"Filtro de Óleo\",\n\t\"description\": \"Filtro de óleo para motores 1.6 e 2.0\",\n\t\"unit_price\": 29.90,\n\t\"stock_quantity\": 50\n}"
-      },
-      "parameters": [],
-      "headers": [{ "name": "Content-Type", "value": "application/json" }],
-      "authentication": { "type": "bearer", "disabled": false, "token": "{{ token }}" },
-      "metaSortKey": 4100,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
-    },
-    {
-      "_id": "req_part_list",
-      "_type": "request",
-      "parentId": "fld_parts",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/parts",
-      "name": "List Parts",
-      "description": "Retorna todas as peças com seus estoques.",
-      "method": "GET",
-      "body": {},
-      "parameters": [],
-      "headers": [],
-      "authentication": { "type": "bearer", "disabled": false, "token": "{{ token }}" },
-      "metaSortKey": 4200,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
-    },
-    {
-      "_id": "req_part_get",
-      "_type": "request",
-      "parentId": "fld_parts",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/parts/{{ part_id }}",
-      "name": "Get Part",
-      "description": "Busca uma peça pelo ID.",
-      "method": "GET",
-      "body": {},
-      "parameters": [],
-      "headers": [],
-      "authentication": { "type": "bearer", "disabled": false, "token": "{{ token }}" },
-      "metaSortKey": 4300,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
-    },
-    {
-      "_id": "req_part_update",
-      "_type": "request",
-      "parentId": "fld_parts",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/parts/{{ part_id }}",
-      "name": "Update Part",
-      "description": "Atualiza nome, descrição e preço. Para alterar estoque use PATCH /stock.",
-      "method": "PUT",
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n\t\"name\": \"Filtro de Óleo Premium\",\n\t\"description\": \"Filtro de óleo premium para motores 1.6 e 2.0\",\n\t\"unit_price\": 39.90\n}"
-      },
-      "parameters": [],
-      "headers": [{ "name": "Content-Type", "value": "application/json" }],
-      "authentication": { "type": "bearer", "disabled": false, "token": "{{ token }}" },
-      "metaSortKey": 4400,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
-    },
-    {
-      "_id": "req_part_stock",
-      "_type": "request",
-      "parentId": "fld_parts",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/parts/{{ part_id }}/stock",
-      "name": "Update Stock",
-      "description": "Adiciona quantidade ao estoque da peça (reabastecimento). Use valor negativo para reduzir manualmente.",
-      "method": "PATCH",
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n\t\"quantity\": 20\n}"
-      },
-      "parameters": [],
-      "headers": [{ "name": "Content-Type", "value": "application/json" }],
-      "authentication": { "type": "bearer", "disabled": false, "token": "{{ token }}" },
-      "metaSortKey": 4500,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
-    },
-    {
-      "_id": "req_part_delete",
-      "_type": "request",
-      "parentId": "fld_parts",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/parts/{{ part_id }}",
-      "name": "Delete Part",
-      "description": "Remove uma peça. Retorna 204 sem body.",
-      "method": "DELETE",
-      "body": {},
-      "parameters": [],
-      "headers": [],
-      "authentication": { "type": "bearer", "disabled": false, "token": "{{ token }}" },
-      "metaSortKey": 4600,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
-    },
-
-    {
-      "_id": "fld_services",
-      "_type": "request_group",
-      "parentId": "wrk_oficina",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "name": "Services",
-      "description": "CRUD de serviços de mão de obra.",
-      "environment": {},
-      "environmentPropertyOrder": null,
-      "metaSortKey": 5000
-    },
-    {
-      "_id": "req_service_create",
-      "_type": "request",
-      "parentId": "fld_services",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/services",
-      "name": "Create Service",
-      "description": "Cria um serviço. Copie o 'id' da resposta para a variável 'service_id'.",
-      "method": "POST",
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n\t\"name\": \"Troca de Óleo\",\n\t\"description\": \"Troca de óleo do motor com filtro\",\n\t\"labor_price\": 150.00,\n\t\"estimated_minutes\": 60\n}"
-      },
-      "parameters": [],
-      "headers": [{ "name": "Content-Type", "value": "application/json" }],
-      "authentication": { "type": "bearer", "disabled": false, "token": "{{ token }}" },
-      "metaSortKey": 5100,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
-    },
-    {
-      "_id": "req_service_list",
-      "_type": "request",
-      "parentId": "fld_services",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/services",
-      "name": "List Services",
-      "description": "Retorna todos os serviços cadastrados.",
-      "method": "GET",
-      "body": {},
-      "parameters": [],
-      "headers": [],
-      "authentication": { "type": "bearer", "disabled": false, "token": "{{ token }}" },
-      "metaSortKey": 5200,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
-    },
-    {
-      "_id": "req_service_get",
-      "_type": "request",
-      "parentId": "fld_services",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/services/{{ service_id }}",
-      "name": "Get Service",
-      "description": "Busca um serviço pelo ID.",
-      "method": "GET",
-      "body": {},
-      "parameters": [],
-      "headers": [],
-      "authentication": { "type": "bearer", "disabled": false, "token": "{{ token }}" },
-      "metaSortKey": 5300,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
-    },
-    {
-      "_id": "req_service_update",
-      "_type": "request",
-      "parentId": "fld_services",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/services/{{ service_id }}",
-      "name": "Update Service",
-      "description": "Atualiza os dados do serviço.",
-      "method": "PUT",
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n\t\"name\": \"Troca de Óleo e Filtro\",\n\t\"description\": \"Troca completa de óleo e filtro do motor\",\n\t\"labor_price\": 180.00,\n\t\"estimated_minutes\": 60\n}"
-      },
-      "parameters": [],
-      "headers": [{ "name": "Content-Type", "value": "application/json" }],
-      "authentication": { "type": "bearer", "disabled": false, "token": "{{ token }}" },
-      "metaSortKey": 5400,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
-    },
-    {
-      "_id": "req_service_delete",
-      "_type": "request",
-      "parentId": "fld_services",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/services/{{ service_id }}",
-      "name": "Delete Service",
-      "description": "Remove um serviço. Retorna 204 sem body.",
-      "method": "DELETE",
-      "body": {},
-      "parameters": [],
-      "headers": [],
-      "authentication": { "type": "bearer", "disabled": false, "token": "{{ token }}" },
-      "metaSortKey": 5500,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
-    },
-
-    {
-      "_id": "fld_orders",
-      "_type": "request_group",
-      "parentId": "wrk_oficina",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "name": "Service Orders",
-      "description": "Fluxo completo da OS: Recebido → Diagnóstico → Orçamento → Aprovação → Execução → Entrega",
-      "environment": {},
-      "environmentPropertyOrder": null,
-      "metaSortKey": 6000
-    },
-    {
-      "_id": "req_order_create",
-      "_type": "request",
-      "parentId": "fld_orders",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/service-orders",
-      "name": "1. Create Service Order",
-      "description": "Abre uma nova OS com status 'received'. services e parts são opcionais na abertura. Copie o 'id' da resposta para a variável 'order_id'.",
-      "method": "POST",
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n\t\"customer_id\": \"{{ customer_id }}\",\n\t\"vehicle_id\": \"{{ vehicle_id }}\",\n\t\"notes\": \"Cliente relata barulho no motor ao acelerar\",\n\t\"services\": [\"{{ service_id }}\"],\n\t\"parts\": [{ \"part_id\": \"{{ part_id }}\", \"quantity\": 1 }]\n}"
-      },
-      "parameters": [],
-      "headers": [{ "name": "Content-Type", "value": "application/json" }],
-      "authentication": { "type": "bearer", "disabled": false, "token": "{{ token }}" },
-      "metaSortKey": 6100,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
-    },
-    {
-      "_id": "req_order_list",
-      "_type": "request",
-      "parentId": "fld_orders",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/service-orders",
-      "name": "List Service Orders",
-      "description": "Retorna todas as OS.",
-      "method": "GET",
-      "body": {},
-      "parameters": [],
-      "headers": [],
-      "authentication": { "type": "bearer", "disabled": false, "token": "{{ token }}" },
-      "metaSortKey": 6150,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
-    },
-    {
-      "_id": "req_order_get",
-      "_type": "request",
-      "parentId": "fld_orders",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/service-orders/{{ order_id }}",
-      "name": "Get Service Order",
-      "description": "Busca uma OS pelo ID com todos os itens e peças.",
-      "method": "GET",
-      "body": {},
-      "parameters": [],
-      "headers": [],
-      "authentication": { "type": "bearer", "disabled": false, "token": "{{ token }}" },
-      "metaSortKey": 6200,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
-    },
-    {
-      "_id": "req_order_start_diagnosis",
-      "_type": "request",
-      "parentId": "fld_orders",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/service-orders/{{ order_id }}/start-diagnosis",
-      "name": "2. Start Diagnosis",
-      "description": "Inicia o diagnóstico. Status: received → in_diagnosis.",
-      "method": "PATCH",
-      "body": {},
-      "parameters": [],
-      "headers": [],
-      "authentication": { "type": "bearer", "disabled": false, "token": "{{ token }}" },
-      "metaSortKey": 6300,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
-    },
-    {
-      "_id": "req_order_add_service",
-      "_type": "request",
-      "parentId": "fld_orders",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/service-orders/{{ order_id }}/services",
-      "name": "3. Add Service to Order",
-      "description": "Adiciona um serviço de mão de obra à OS. Pode ser chamado múltiplas vezes.",
-      "method": "POST",
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n\t\"service_id\": \"{{ service_id }}\"\n}"
-      },
-      "parameters": [],
-      "headers": [{ "name": "Content-Type", "value": "application/json" }],
-      "authentication": { "type": "bearer", "disabled": false, "token": "{{ token }}" },
-      "metaSortKey": 6400,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
-    },
-    {
-      "_id": "req_order_add_part",
-      "_type": "request",
-      "parentId": "fld_orders",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/service-orders/{{ order_id }}/parts",
-      "name": "4. Add Part to Order",
-      "description": "Adiciona uma peça à OS. Verifica disponibilidade no estoque mas só debita ao aprovar o orçamento.",
-      "method": "POST",
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n\t\"part_id\": \"{{ part_id }}\",\n\t\"quantity\": 2\n}"
-      },
-      "parameters": [],
-      "headers": [{ "name": "Content-Type", "value": "application/json" }],
-      "authentication": { "type": "bearer", "disabled": false, "token": "{{ token }}" },
-      "metaSortKey": 6500,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
-    },
-    {
-      "_id": "req_order_send_budget",
-      "_type": "request",
-      "parentId": "fld_orders",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/service-orders/{{ order_id }}/send-budget",
-      "name": "5. Send Budget",
-      "description": "Envia o orçamento ao cliente para aprovação. Status: in_diagnosis → waiting_approval.",
-      "method": "PATCH",
-      "body": {},
-      "parameters": [],
-      "headers": [],
-      "authentication": { "type": "bearer", "disabled": false, "token": "{{ token }}" },
-      "metaSortKey": 6700,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
-    },
-    {
-      "_id": "req_order_approve",
-      "_type": "request",
-      "parentId": "fld_orders",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/service-orders/{{ order_id }}/approve-budget",
-      "name": "6a. Approve Budget",
-      "description": "Aprova o orçamento (rota administrativa/JWT). Debita o estoque das peças e inicia a execução. Status: waiting_approval → in_execution.",
-      "method": "PATCH",
-      "body": {},
-      "parameters": [],
-      "headers": [],
-      "authentication": { "type": "bearer", "disabled": false, "token": "{{ token }}" },
-      "metaSortKey": 6800,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
-    },
-    {
-      "_id": "req_order_reject",
-      "_type": "request",
-      "parentId": "fld_orders",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/service-orders/{{ order_id }}/reject-budget",
-      "name": "6b. Reject Budget",
-      "description": "Rejeita o orçamento e cancela a OS. Use como alternativa ao Approve. Status: waiting_approval → cancelled.",
-      "method": "PATCH",
-      "body": {},
-      "parameters": [],
-      "headers": [],
-      "authentication": { "type": "bearer", "disabled": false, "token": "{{ token }}" },
-      "metaSortKey": 6850,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
-    },
-    {
-      "_id": "req_order_budget_webhook",
-      "_type": "request",
-      "parentId": "fld_orders",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/service-orders/{{ order_id }}/budget-approval",
-      "name": "6c. Budget Approval via Webhook (external)",
-      "description": "Notificação externa de aprovação/recusa do orçamento. Autenticada por X-Webhook-Secret (não usa JWT). decision: approved | rejected.",
-      "method": "POST",
-      "body": {
-        "mimeType": "application/json",
-        "text": "{\n\t\"decision\": \"approved\"\n}"
-      },
-      "parameters": [],
+      "url": "{{ os_url }}/auth/register",
+      "description": "",
+      "metaSortKey": 100,
       "headers": [
-        { "name": "Content-Type", "value": "application/json" },
-        { "name": "X-Webhook-Secret", "value": "{{ webhook_secret }}" }
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
       ],
+      "parameters": [],
       "authentication": {},
-      "metaSortKey": 6870,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"email\": \"operador@oficina.com\",\n  \"password\": \"secret123\"\n}"
+      }
     },
     {
-      "_id": "req_order_finish_exec",
+      "_id": "req_002",
       "_type": "request",
-      "parentId": "fld_orders",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/service-orders/{{ order_id }}/finish-execution",
-      "name": "7. Finish Execution",
-      "description": "Marca a execução como concluída. Status: in_execution → finished.",
-      "method": "PATCH",
-      "body": {},
+      "parentId": "fld_01",
+      "name": "Login do operador",
+      "method": "POST",
+      "url": "{{ os_url }}/auth/login",
+      "description": "Copie o token para a variável `token` do ambiente.",
+      "metaSortKey": 200,
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
       "parameters": [],
-      "headers": [],
-      "authentication": { "type": "bearer", "disabled": false, "token": "{{ token }}" },
-      "metaSortKey": 6900,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
+      "authentication": {},
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"email\": \"admin@oficina.com\",\n  \"password\": \"admin123\"\n}"
+      }
     },
     {
-      "_id": "req_order_deliver",
+      "_id": "req_003",
       "_type": "request",
-      "parentId": "fld_orders",
-      "modified": 1746100800000,
-      "created": 1746100800000,
-      "url": "{{ base_url }}/service-orders/{{ order_id }}/deliver",
-      "name": "8. Deliver Vehicle",
-      "description": "Registra a entrega do veículo ao cliente. Status: finished → delivered. Fim do fluxo.",
-      "method": "PATCH",
-      "body": {},
+      "parentId": "fld_01",
+      "name": "Login do cliente por CPF (Lambda, só na AWS)",
+      "method": "POST",
+      "url": "{{ gateway_url }}/auth/cpf",
+      "description": "",
+      "metaSortKey": 300,
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
       "parameters": [],
+      "authentication": {},
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"cpf\": \"98765432100\"\n}"
+      }
+    },
+    {
+      "_id": "fld_02",
+      "_type": "request_group",
+      "parentId": "wrk_oficina",
+      "name": "1. OS Service — clientes e veículos",
+      "description": "",
+      "metaSortKey": 200
+    },
+    {
+      "_id": "req_004",
+      "_type": "request",
+      "parentId": "fld_02",
+      "name": "Criar cliente",
+      "method": "POST",
+      "url": "{{ os_url }}/customers",
+      "description": "",
+      "metaSortKey": 400,
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      },
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"name\": \"Maria Silva\",\n  \"document\": \"529.982.247-25\",\n  \"phone\": \"11999999999\",\n  \"email\": \"maria@example.com\"\n}"
+      }
+    },
+    {
+      "_id": "req_005",
+      "_type": "request",
+      "parentId": "fld_02",
+      "name": "Listar clientes",
+      "method": "GET",
+      "url": "{{ os_url }}/customers",
+      "description": "",
+      "metaSortKey": 500,
       "headers": [],
-      "authentication": { "type": "bearer", "disabled": false, "token": "{{ token }}" },
-      "metaSortKey": 7000,
-      "isPrivate": false,
-      "settingStoreCookies": true,
-      "settingSendCookies": true,
-      "settingDisableRenderRequestBody": false,
-      "settingEncodeUrl": true,
-      "settingRebuildPath": true,
-      "settingFollowRedirects": "global"
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      }
+    },
+    {
+      "_id": "req_006",
+      "_type": "request",
+      "parentId": "fld_02",
+      "name": "Consultar cliente",
+      "method": "GET",
+      "url": "{{ os_url }}/customers/{{ customer_id }}",
+      "description": "",
+      "metaSortKey": 600,
+      "headers": [],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      }
+    },
+    {
+      "_id": "req_007",
+      "_type": "request",
+      "parentId": "fld_02",
+      "name": "Atualizar cliente",
+      "method": "PUT",
+      "url": "{{ os_url }}/customers/{{ customer_id }}",
+      "description": "",
+      "metaSortKey": 700,
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      },
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"name\": \"Maria Souza\",\n  \"phone\": \"11988888888\",\n  \"email\": \"maria.souza@example.com\"\n}"
+      }
+    },
+    {
+      "_id": "req_008",
+      "_type": "request",
+      "parentId": "fld_02",
+      "name": "Alterar status do cliente",
+      "method": "PATCH",
+      "url": "{{ os_url }}/customers/{{ customer_id }}/status",
+      "description": "",
+      "metaSortKey": 800,
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      },
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"status\": \"inactive\"\n}"
+      }
+    },
+    {
+      "_id": "req_009",
+      "_type": "request",
+      "parentId": "fld_02",
+      "name": "Criar veículo",
+      "method": "POST",
+      "url": "{{ os_url }}/vehicles",
+      "description": "",
+      "metaSortKey": 900,
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      },
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"customer_id\": \"{{ customer_id }}\",\n  \"plate\": \"BRA2E19\",\n  \"brand\": \"Honda\",\n  \"model\": \"Civic\",\n  \"year\": 2022\n}"
+      }
+    },
+    {
+      "_id": "req_010",
+      "_type": "request",
+      "parentId": "fld_02",
+      "name": "Listar veículos",
+      "method": "GET",
+      "url": "{{ os_url }}/vehicles",
+      "description": "",
+      "metaSortKey": 1000,
+      "headers": [],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      }
+    },
+    {
+      "_id": "req_011",
+      "_type": "request",
+      "parentId": "fld_02",
+      "name": "Consultar veículo",
+      "method": "GET",
+      "url": "{{ os_url }}/vehicles/{{ vehicle_id }}",
+      "description": "",
+      "metaSortKey": 1100,
+      "headers": [],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      }
+    },
+    {
+      "_id": "fld_03",
+      "_type": "request_group",
+      "parentId": "wrk_oficina",
+      "name": "2. Execution Service — catálogo e estoque",
+      "description": "",
+      "metaSortKey": 300
+    },
+    {
+      "_id": "req_012",
+      "_type": "request",
+      "parentId": "fld_03",
+      "name": "Criar serviço",
+      "method": "POST",
+      "url": "{{ execution_url }}/services",
+      "description": "",
+      "metaSortKey": 1200,
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      },
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"name\": \"Troca de óleo\",\n  \"description\": \"Troca completa de óleo e filtro\",\n  \"labor_price\": 120,\n  \"estimated_minutes\": 45\n}"
+      }
+    },
+    {
+      "_id": "req_013",
+      "_type": "request",
+      "parentId": "fld_03",
+      "name": "Listar serviços",
+      "method": "GET",
+      "url": "{{ execution_url }}/services",
+      "description": "",
+      "metaSortKey": 1300,
+      "headers": [],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      }
+    },
+    {
+      "_id": "req_014",
+      "_type": "request",
+      "parentId": "fld_03",
+      "name": "Criar peça",
+      "method": "POST",
+      "url": "{{ execution_url }}/parts",
+      "description": "",
+      "metaSortKey": 1400,
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      },
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"name\": \"Filtro de óleo\",\n  \"description\": \"Filtro padrão\",\n  \"unit_price\": 29.9,\n  \"stock_quantity\": 5\n}"
+      }
+    },
+    {
+      "_id": "req_015",
+      "_type": "request",
+      "parentId": "fld_03",
+      "name": "Listar peças",
+      "method": "GET",
+      "url": "{{ execution_url }}/parts",
+      "description": "",
+      "metaSortKey": 1500,
+      "headers": [],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      }
+    },
+    {
+      "_id": "req_016",
+      "_type": "request",
+      "parentId": "fld_03",
+      "name": "Consultar peça (estoque)",
+      "method": "GET",
+      "url": "{{ execution_url }}/parts/{{ part_id }}",
+      "description": "",
+      "metaSortKey": 1600,
+      "headers": [],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      }
+    },
+    {
+      "_id": "req_017",
+      "_type": "request",
+      "parentId": "fld_03",
+      "name": "Entrada de estoque",
+      "method": "PATCH",
+      "url": "{{ execution_url }}/parts/{{ part_id }}/stock",
+      "description": "",
+      "metaSortKey": 1700,
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      },
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"quantity\": 10\n}"
+      }
+    },
+    {
+      "_id": "fld_04",
+      "_type": "request_group",
+      "parentId": "wrk_oficina",
+      "name": "3. Fluxo completo da ordem de serviço (saga)",
+      "description": "Execute na ordem. A cada passo, consulte a OS e a saga no grupo 5.",
+      "metaSortKey": 400
+    },
+    {
+      "_id": "req_018",
+      "_type": "request",
+      "parentId": "fld_04",
+      "name": "1. Abrir ordem de serviço (OS Service)",
+      "method": "POST",
+      "url": "{{ os_url }}/service-orders",
+      "description": "Inicia a saga e envia RequestDiagnosis ao Execution Service.",
+      "metaSortKey": 1800,
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      },
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"customer_id\": \"{{ customer_id }}\",\n  \"vehicle_id\": \"{{ vehicle_id }}\",\n  \"notes\": \"Barulho no motor\"\n}"
+      }
+    },
+    {
+      "_id": "req_019",
+      "_type": "request",
+      "parentId": "fld_04",
+      "name": "2. Fila de diagnóstico (Execution Service)",
+      "method": "GET",
+      "url": "{{ execution_url }}/work-orders?status=awaiting_diagnosis",
+      "description": "",
+      "metaSortKey": 1900,
+      "headers": [],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      }
+    },
+    {
+      "_id": "req_020",
+      "_type": "request",
+      "parentId": "fld_04",
+      "name": "3. Iniciar diagnóstico",
+      "method": "PATCH",
+      "url": "{{ execution_url }}/work-orders/{{ order_id }}/start-diagnosis",
+      "description": "",
+      "metaSortKey": 2000,
+      "headers": [],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      }
+    },
+    {
+      "_id": "req_021",
+      "_type": "request",
+      "parentId": "fld_04",
+      "name": "4. Incluir serviço no diagnóstico",
+      "method": "POST",
+      "url": "{{ execution_url }}/work-orders/{{ order_id }}/services",
+      "description": "",
+      "metaSortKey": 2100,
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      },
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"service_id\": \"{{ service_id }}\"\n}"
+      }
+    },
+    {
+      "_id": "req_022",
+      "_type": "request",
+      "parentId": "fld_04",
+      "name": "5. Incluir peça no diagnóstico",
+      "method": "POST",
+      "url": "{{ execution_url }}/work-orders/{{ order_id }}/parts",
+      "description": "",
+      "metaSortKey": 2200,
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      },
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"part_id\": \"{{ part_id }}\",\n  \"quantity\": 2\n}"
+      }
+    },
+    {
+      "_id": "req_023",
+      "_type": "request",
+      "parentId": "fld_04",
+      "name": "6. Concluir diagnóstico",
+      "method": "PATCH",
+      "url": "{{ execution_url }}/work-orders/{{ order_id }}/complete-diagnosis",
+      "description": "Responde DiagnosisCompleted; o orquestrador envia GenerateBudget ao Billing Service.",
+      "metaSortKey": 2300,
+      "headers": [],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      }
+    },
+    {
+      "_id": "req_024",
+      "_type": "request",
+      "parentId": "fld_04",
+      "name": "7. Consultar orçamento da OS (Billing Service)",
+      "method": "GET",
+      "url": "{{ billing_url }}/budgets?order_id={{ order_id }}",
+      "description": "",
+      "metaSortKey": 2400,
+      "headers": [],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      }
+    },
+    {
+      "_id": "req_025",
+      "_type": "request",
+      "parentId": "fld_04",
+      "name": "8. Aprovar orçamento",
+      "method": "PATCH",
+      "url": "{{ billing_url }}/budgets/{{ budget_id }}/approve",
+      "description": "Responde BudgetApproved; o orquestrador envia RequestPayment.",
+      "metaSortKey": 2500,
+      "headers": [],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      }
+    },
+    {
+      "_id": "req_026",
+      "_type": "request",
+      "parentId": "fld_04",
+      "name": "9. Consultar pagamento e link de checkout",
+      "method": "GET",
+      "url": "{{ billing_url }}/budgets/{{ budget_id }}/payment",
+      "description": "",
+      "metaSortKey": 2600,
+      "headers": [],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      }
+    },
+    {
+      "_id": "req_027",
+      "_type": "request",
+      "parentId": "fld_04",
+      "name": "10. Simular pagamento aprovado (gateway falso, só local)",
+      "method": "POST",
+      "url": "{{ billing_url }}/payments/{{ payment_id }}/simulate",
+      "description": "Na AWS o pagamento é feito no checkout do Mercado Pago e confirmado pelo webhook.",
+      "metaSortKey": 2700,
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      },
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"approved\": true\n}"
+      }
+    },
+    {
+      "_id": "req_028",
+      "_type": "request",
+      "parentId": "fld_04",
+      "name": "11. Fila de execução (Execution Service)",
+      "method": "GET",
+      "url": "{{ execution_url }}/work-orders?status=in_execution",
+      "description": "",
+      "metaSortKey": 2800,
+      "headers": [],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      }
+    },
+    {
+      "_id": "req_029",
+      "_type": "request",
+      "parentId": "fld_04",
+      "name": "12. Concluir reparo",
+      "method": "PATCH",
+      "url": "{{ execution_url }}/work-orders/{{ order_id }}/finish-execution",
+      "description": "",
+      "metaSortKey": 2900,
+      "headers": [],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      }
+    },
+    {
+      "_id": "req_030",
+      "_type": "request",
+      "parentId": "fld_04",
+      "name": "13. Entregar veículo (OS Service)",
+      "method": "PATCH",
+      "url": "{{ os_url }}/service-orders/{{ order_id }}/deliver",
+      "description": "",
+      "metaSortKey": 3000,
+      "headers": [],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      }
+    },
+    {
+      "_id": "fld_05",
+      "_type": "request_group",
+      "parentId": "wrk_oficina",
+      "name": "4. Falhas e compensação",
+      "description": "",
+      "metaSortKey": 500
+    },
+    {
+      "_id": "req_031",
+      "_type": "request",
+      "parentId": "fld_05",
+      "name": "Recusar orçamento",
+      "method": "PATCH",
+      "url": "{{ billing_url }}/budgets/{{ budget_id }}/reject",
+      "description": "Compensa com CancelWorkOrder.",
+      "metaSortKey": 3100,
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      },
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"reason\": \"Valor acima do esperado\"\n}"
+      }
+    },
+    {
+      "_id": "req_032",
+      "_type": "request",
+      "parentId": "fld_05",
+      "name": "Simular pagamento recusado (só local)",
+      "method": "POST",
+      "url": "{{ billing_url }}/payments/{{ payment_id }}/simulate",
+      "description": "Compensa com CancelBudget e CancelWorkOrder.",
+      "metaSortKey": 3200,
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      },
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"approved\": false,\n  \"reason\": \"Cartão recusado\"\n}"
+      }
+    },
+    {
+      "_id": "req_033",
+      "_type": "request",
+      "parentId": "fld_05",
+      "name": "Diagnóstico não pôde ser feito",
+      "method": "PATCH",
+      "url": "{{ execution_url }}/work-orders/{{ order_id }}/fail-diagnosis",
+      "description": "",
+      "metaSortKey": 3300,
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      },
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"reason\": \"Veículo não foi entregue na oficina\"\n}"
+      }
+    },
+    {
+      "_id": "req_034",
+      "_type": "request",
+      "parentId": "fld_05",
+      "name": "Cancelar ordem de serviço (operador)",
+      "method": "PATCH",
+      "url": "{{ os_url }}/service-orders/{{ order_id }}/cancel",
+      "description": "Dispara as compensações conforme o passo em que a saga está.",
+      "metaSortKey": 3400,
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      },
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"reason\": \"Cliente desistiu\"\n}"
+      }
+    },
+    {
+      "_id": "fld_06",
+      "_type": "request_group",
+      "parentId": "wrk_oficina",
+      "name": "5. Acompanhamento",
+      "description": "",
+      "metaSortKey": 600
+    },
+    {
+      "_id": "req_035",
+      "_type": "request",
+      "parentId": "fld_06",
+      "name": "Consultar ordem de serviço",
+      "method": "GET",
+      "url": "{{ os_url }}/service-orders/{{ order_id }}",
+      "description": "",
+      "metaSortKey": 3500,
+      "headers": [],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      }
+    },
+    {
+      "_id": "req_036",
+      "_type": "request",
+      "parentId": "fld_06",
+      "name": "Status público da ordem de serviço",
+      "method": "GET",
+      "url": "{{ os_url }}/service-orders/{{ order_id }}/status",
+      "description": "",
+      "metaSortKey": 3600,
+      "headers": [],
+      "parameters": [],
+      "authentication": {}
+    },
+    {
+      "_id": "req_037",
+      "_type": "request",
+      "parentId": "fld_06",
+      "name": "Histórico de status",
+      "method": "GET",
+      "url": "{{ os_url }}/service-orders/{{ order_id }}/history",
+      "description": "",
+      "metaSortKey": 3700,
+      "headers": [],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      }
+    },
+    {
+      "_id": "req_038",
+      "_type": "request",
+      "parentId": "fld_06",
+      "name": "Estado e registro da saga",
+      "method": "GET",
+      "url": "{{ os_url }}/service-orders/{{ order_id }}/saga",
+      "description": "",
+      "metaSortKey": 3800,
+      "headers": [],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      }
+    },
+    {
+      "_id": "req_039",
+      "_type": "request",
+      "parentId": "fld_06",
+      "name": "Listar ordens de serviço ativas",
+      "method": "GET",
+      "url": "{{ os_url }}/service-orders",
+      "description": "",
+      "metaSortKey": 3900,
+      "headers": [],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      }
+    },
+    {
+      "_id": "req_040",
+      "_type": "request",
+      "parentId": "fld_06",
+      "name": "Consultar ordem de trabalho",
+      "method": "GET",
+      "url": "{{ execution_url }}/work-orders/{{ order_id }}",
+      "description": "",
+      "metaSortKey": 4000,
+      "headers": [],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      }
+    },
+    {
+      "_id": "req_041",
+      "_type": "request",
+      "parentId": "fld_06",
+      "name": "Métricas de execução",
+      "method": "GET",
+      "url": "{{ execution_url }}/work-orders/metrics",
+      "description": "",
+      "metaSortKey": 4100,
+      "headers": [],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      }
+    },
+    {
+      "_id": "req_042",
+      "_type": "request",
+      "parentId": "fld_06",
+      "name": "Listar orçamentos",
+      "method": "GET",
+      "url": "{{ billing_url }}/budgets",
+      "description": "",
+      "metaSortKey": 4200,
+      "headers": [],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      }
+    },
+    {
+      "_id": "req_043",
+      "_type": "request",
+      "parentId": "fld_06",
+      "name": "Consultar pagamento",
+      "method": "GET",
+      "url": "{{ billing_url }}/payments/{{ payment_id }}",
+      "description": "",
+      "metaSortKey": 4300,
+      "headers": [],
+      "parameters": [],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ token }}"
+      }
     }
   ]
 }
