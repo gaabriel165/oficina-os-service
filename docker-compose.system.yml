@@ -16,6 +16,7 @@ services:
     build: .
     ports:
       - "8080:8080"
+    restart: unless-stopped
     environment:
       <<: *local-aws
       OTEL_SERVICE_NAME: oficina-os-service
@@ -31,6 +32,7 @@ services:
     build: ../oficina-billing-service
     ports:
       - "8081:8080"
+    restart: unless-stopped
     environment:
       <<: *local-aws
       OTEL_SERVICE_NAME: oficina-billing-service
@@ -47,6 +49,7 @@ services:
     build: ../oficina-execution-service
     ports:
       - "8082:8080"
+    restart: unless-stopped
     environment:
       <<: *local-aws
       OTEL_SERVICE_NAME: oficina-execution-service
