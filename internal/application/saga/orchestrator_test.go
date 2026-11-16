@@ -1,6 +1,8 @@
 package saga_test
 
 import (
+	"bytes"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -394,4 +396,19 @@ func TestExpireOverdue_ShouldStopOnFirstFailure(t *testing.T) {
 
 	assert.ErrorIs(t, err, errDatabase)
 	assert.Zero(t, expired)
+}
+
+func TestHandle_ShouldLogStatusChangeWithTimeSpentInPreviousStatus(t *testing.T) {
+	var output bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))
+	t.Cleanup(func() { slog.SetDefault(previous) })
+	s := startedScenario(t)
+
+	s.mustReply(t, messaging.TypeDiagnosisStarted, nil)
+
+	assert.Contains(t, output.String(), `"event":"service_order.status_changed"`)
+	assert.Contains(t, output.String(), `"from_status":"received"`)
+	assert.Contains(t, output.String(), `"to_status":"in_diagnosis"`)
+	assert.Contains(t, output.String(), `"duration_minutes"`)
 }

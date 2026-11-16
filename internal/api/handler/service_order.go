@@ -226,7 +226,11 @@ func (h *ServiceOrderHandler) Cancel(c *gin.Context) {
 		OrderID: c.Param("id"),
 		Reason:  req.Reason,
 	})
-	respondOrderTransition(c, "cancel", result, err)
+	if err != nil {
+		failOrder(c, "cancel", c.Param("id"), err)
+		return
+	}
+	c.JSON(http.StatusOK, dto.ToServiceOrderResponse(result))
 }
 
 // DeliverVehicle godoc
