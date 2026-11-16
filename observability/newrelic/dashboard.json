@@ -1,6 +1,6 @@
 {
-  "name": "Oficina API — Operação",
-  "description": "Ordens de serviço, integrações, latência das APIs e recursos do Kubernetes (Tech Challenge Fase 3)",
+  "name": "Oficina — Operação dos microsserviços",
+  "description": "Ordens de serviço, saga e mensageria, latência das APIs e recursos do Kubernetes dos três microsserviços (Tech Challenge Fase 4)",
   "permissions": "PUBLIC_READ_ONLY",
   "pages": [
     {
@@ -8,39 +8,328 @@
       "widgets": [
         {
           "title": "OS abertas hoje",
-          "layout": { "column": 1, "row": 1, "width": 3, "height": 3 },
-          "visualization": { "id": "viz.billboard" },
-          "rawConfiguration": { "nrqlQueries": [ { "accountId": ACCOUNT_ID, "query": "SELECT count(*) AS 'OS abertas' FROM Log WHERE event = 'service_order.created' SINCE today" } ] }
+          "layout": {
+            "column": 1,
+            "row": 1,
+            "width": 3,
+            "height": 3
+          },
+          "visualization": {
+            "id": "viz.billboard"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": ACCOUNT_ID,
+                "query": "SELECT count(*) AS 'OS abertas' FROM Log WHERE event = 'service_order.created' SINCE today"
+              }
+            ]
+          }
         },
         {
           "title": "Volume diário de ordens de serviço",
-          "layout": { "column": 4, "row": 1, "width": 9, "height": 3 },
-          "visualization": { "id": "viz.bar" },
-          "rawConfiguration": { "nrqlQueries": [ { "accountId": ACCOUNT_ID, "query": "SELECT count(*) AS 'OS abertas' FROM Log WHERE event = 'service_order.created' FACET dateOf(timestamp) SINCE 30 days ago LIMIT 31" } ] }
+          "layout": {
+            "column": 4,
+            "row": 1,
+            "width": 9,
+            "height": 3
+          },
+          "visualization": {
+            "id": "viz.bar"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": ACCOUNT_ID,
+                "query": "SELECT count(*) AS 'OS abertas' FROM Log WHERE event = 'service_order.created' FACET dateOf(timestamp) SINCE 30 days ago LIMIT 31"
+              }
+            ]
+          }
         },
         {
           "title": "Tempo médio por status (minutos) — diagnóstico, execução, finalização",
-          "layout": { "column": 1, "row": 4, "width": 6, "height": 3 },
-          "visualization": { "id": "viz.bar" },
-          "rawConfiguration": { "nrqlQueries": [ { "accountId": ACCOUNT_ID, "query": "SELECT average(numeric(duration_minutes)) AS 'minutos' FROM Log WHERE event = 'service_order.status_changed' FACET from_status SINCE 7 days ago" } ] }
+          "layout": {
+            "column": 1,
+            "row": 4,
+            "width": 6,
+            "height": 3
+          },
+          "visualization": {
+            "id": "viz.bar"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": ACCOUNT_ID,
+                "query": "SELECT average(numeric(duration_minutes)) AS 'minutos' FROM Log WHERE event = 'service_order.status_changed' FACET from_status SINCE 7 days ago"
+              }
+            ]
+          }
         },
         {
           "title": "Transições de status por dia",
-          "layout": { "column": 7, "row": 4, "width": 6, "height": 3 },
-          "visualization": { "id": "viz.stacked-bar" },
-          "rawConfiguration": { "nrqlQueries": [ { "accountId": ACCOUNT_ID, "query": "SELECT count(*) FROM Log WHERE event = 'service_order.status_changed' FACET to_status TIMESERIES 1 day SINCE 7 days ago" } ] }
+          "layout": {
+            "column": 7,
+            "row": 4,
+            "width": 6,
+            "height": 3
+          },
+          "visualization": {
+            "id": "viz.stacked-bar"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": ACCOUNT_ID,
+                "query": "SELECT count(*) FROM Log WHERE event = 'service_order.status_changed' FACET to_status TIMESERIES 1 day SINCE 7 days ago"
+              }
+            ]
+          }
         },
         {
           "title": "Falhas no processamento de OS",
-          "layout": { "column": 1, "row": 7, "width": 6, "height": 3 },
-          "visualization": { "id": "viz.table" },
-          "rawConfiguration": { "nrqlQueries": [ { "accountId": ACCOUNT_ID, "query": "SELECT count(*) AS 'falhas', latest(timestamp) AS 'última' FROM Log WHERE event = 'service_order.failed' FACET action, error SINCE 24 hours ago" } ] }
+          "layout": {
+            "column": 1,
+            "row": 7,
+            "width": 6,
+            "height": 3
+          },
+          "visualization": {
+            "id": "viz.table"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": ACCOUNT_ID,
+                "query": "SELECT count(*) AS 'falhas', latest(timestamp) AS 'última' FROM Log WHERE event = 'service_order.failed' FACET action, error SINCE 24 hours ago"
+              }
+            ]
+          }
         },
         {
           "title": "Erros e falhas nas integrações (Resend, BrasilAPI)",
-          "layout": { "column": 7, "row": 7, "width": 6, "height": 3 },
-          "visualization": { "id": "viz.line" },
-          "rawConfiguration": { "nrqlQueries": [ { "accountId": ACCOUNT_ID, "query": "SELECT count(*) FROM Log WHERE event = 'integration.error' FACET integration TIMESERIES 30 minutes SINCE 24 hours ago" } ] }
+          "layout": {
+            "column": 7,
+            "row": 7,
+            "width": 6,
+            "height": 3
+          },
+          "visualization": {
+            "id": "viz.line"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": ACCOUNT_ID,
+                "query": "SELECT count(*) FROM Log WHERE event = 'integration.error' FACET integration TIMESERIES 30 minutes SINCE 24 hours ago"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Saga e mensageria",
+      "widgets": [
+        {
+          "title": "Sagas iniciadas, concluídas e compensadas (hoje)",
+          "layout": {
+            "column": 1,
+            "row": 1,
+            "width": 4,
+            "height": 3
+          },
+          "visualization": {
+            "id": "viz.billboard"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": ACCOUNT_ID,
+                "query": "SELECT filter(count(*), WHERE event = 'saga.started') AS 'iniciadas', filter(count(*), WHERE event = 'saga.completed') AS 'concluídas', filter(count(*), WHERE event = 'saga.compensated') AS 'compensadas' FROM Log SINCE today"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Desfecho das sagas por hora",
+          "layout": {
+            "column": 5,
+            "row": 1,
+            "width": 8,
+            "height": 3
+          },
+          "visualization": {
+            "id": "viz.stacked-bar"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": ACCOUNT_ID,
+                "query": "SELECT count(*) FROM Log WHERE event IN ('saga.completed', 'saga.compensated') FACET event TIMESERIES 1 hour SINCE 24 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Motivos de compensação",
+          "layout": {
+            "column": 1,
+            "row": 4,
+            "width": 6,
+            "height": 3
+          },
+          "visualization": {
+            "id": "viz.table"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": ACCOUNT_ID,
+                "query": "SELECT count(*) AS 'sagas', latest(timestamp) AS 'última' FROM Log WHERE event = 'saga.compensating' FACET failure_reason, saga_step SINCE 7 days ago LIMIT 20"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Avanço da saga por resposta recebida",
+          "layout": {
+            "column": 7,
+            "row": 4,
+            "width": 6,
+            "height": 3
+          },
+          "visualization": {
+            "id": "viz.bar"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": ACCOUNT_ID,
+                "query": "SELECT count(*) FROM Log WHERE event IN ('saga.step_completed', 'saga.compensating', 'saga.completed', 'saga.compensated') FACET reply SINCE 24 hours ago LIMIT 20"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Mensagens publicadas e processadas por serviço",
+          "layout": {
+            "column": 1,
+            "row": 7,
+            "width": 6,
+            "height": 3
+          },
+          "visualization": {
+            "id": "viz.line"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": ACCOUNT_ID,
+                "query": "SELECT count(*) FROM Log WHERE event IN ('message.published', 'message.processed') FACET service.name, event TIMESERIES 5 minutes SINCE 3 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Mensagens por tipo",
+          "layout": {
+            "column": 7,
+            "row": 7,
+            "width": 6,
+            "height": 3
+          },
+          "visualization": {
+            "id": "viz.bar"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": ACCOUNT_ID,
+                "query": "SELECT count(*) FROM Log WHERE event = 'message.processed' FACET message_type SINCE 24 hours ago LIMIT 20"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Falhas de processamento, duplicadas e respostas ignoradas",
+          "layout": {
+            "column": 1,
+            "row": 10,
+            "width": 6,
+            "height": 3
+          },
+          "visualization": {
+            "id": "viz.line"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": ACCOUNT_ID,
+                "query": "SELECT count(*) FROM Log WHERE event IN ('message.failed', 'message.invalid', 'message.duplicate', 'saga.reply_ignored', 'saga.timed_out') FACET event TIMESERIES 5 minutes SINCE 3 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Trace distribuído — duração por serviço (ms)",
+          "layout": {
+            "column": 7,
+            "row": 10,
+            "width": 6,
+            "height": 3
+          },
+          "visualization": {
+            "id": "viz.line"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": ACCOUNT_ID,
+                "query": "SELECT average(duration.ms) AS 'ms' FROM Span WHERE service.name IN ('oficina-os-service', 'oficina-billing-service', 'oficina-execution-service') FACET service.name TIMESERIES 5 minutes SINCE 3 hours ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Pagamentos por resultado",
+          "layout": {
+            "column": 1,
+            "row": 13,
+            "width": 6,
+            "height": 3
+          },
+          "visualization": {
+            "id": "viz.bar"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": ACCOUNT_ID,
+                "query": "SELECT count(*) FROM Log WHERE event = 'payment.settled' FACET status SINCE 7 days ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Orçamentos por decisão",
+          "layout": {
+            "column": 7,
+            "row": 13,
+            "width": 6,
+            "height": 3
+          },
+          "visualization": {
+            "id": "viz.bar"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": ACCOUNT_ID,
+                "query": "SELECT count(*) FROM Log WHERE event = 'budget.decided' FACET status SINCE 7 days ago"
+              }
+            ]
+          }
         }
       ]
     },
@@ -49,39 +338,123 @@
       "widgets": [
         {
           "title": "Latência p50 / p95 / p99 (ms)",
-          "layout": { "column": 1, "row": 1, "width": 8, "height": 3 },
-          "visualization": { "id": "viz.line" },
-          "rawConfiguration": { "nrqlQueries": [ { "accountId": ACCOUNT_ID, "query": "SELECT percentile(numeric(latency_ms), 50, 95, 99) FROM Log WHERE event = 'http.request' TIMESERIES 5 minutes SINCE 3 hours ago" } ] }
+          "layout": {
+            "column": 1,
+            "row": 1,
+            "width": 8,
+            "height": 3
+          },
+          "visualization": {
+            "id": "viz.line"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": ACCOUNT_ID,
+                "query": "SELECT percentile(numeric(latency_ms), 50, 95, 99) FROM Log WHERE event = 'http.request' FACET service.name TIMESERIES 5 minutes SINCE 3 hours ago"
+              }
+            ]
+          }
         },
         {
           "title": "Throughput (req/min)",
-          "layout": { "column": 9, "row": 1, "width": 4, "height": 3 },
-          "visualization": { "id": "viz.billboard" },
-          "rawConfiguration": { "nrqlQueries": [ { "accountId": ACCOUNT_ID, "query": "SELECT rate(count(*), 1 minute) AS 'req/min' FROM Log WHERE event = 'http.request' SINCE 30 minutes ago" } ] }
+          "layout": {
+            "column": 9,
+            "row": 1,
+            "width": 4,
+            "height": 3
+          },
+          "visualization": {
+            "id": "viz.billboard"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": ACCOUNT_ID,
+                "query": "SELECT rate(count(*), 1 minute) AS 'req/min' FROM Log WHERE event = 'http.request' SINCE 30 minutes ago"
+              }
+            ]
+          }
         },
         {
           "title": "Latência média por rota (ms)",
-          "layout": { "column": 1, "row": 4, "width": 6, "height": 3 },
-          "visualization": { "id": "viz.bar" },
-          "rawConfiguration": { "nrqlQueries": [ { "accountId": ACCOUNT_ID, "query": "SELECT average(numeric(latency_ms)) AS 'ms' FROM Log WHERE event = 'http.request' FACET method, route SINCE 3 hours ago LIMIT 20" } ] }
+          "layout": {
+            "column": 1,
+            "row": 4,
+            "width": 6,
+            "height": 3
+          },
+          "visualization": {
+            "id": "viz.bar"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": ACCOUNT_ID,
+                "query": "SELECT average(numeric(latency_ms)) AS 'ms' FROM Log WHERE event = 'http.request' FACET service.name, method, route SINCE 3 hours ago LIMIT 20"
+              }
+            ]
+          }
         },
         {
           "title": "Respostas por status HTTP",
-          "layout": { "column": 7, "row": 4, "width": 6, "height": 3 },
-          "visualization": { "id": "viz.stacked-bar" },
-          "rawConfiguration": { "nrqlQueries": [ { "accountId": ACCOUNT_ID, "query": "SELECT count(*) FROM Log WHERE event = 'http.request' FACET status TIMESERIES 5 minutes SINCE 3 hours ago" } ] }
+          "layout": {
+            "column": 7,
+            "row": 4,
+            "width": 6,
+            "height": 3
+          },
+          "visualization": {
+            "id": "viz.stacked-bar"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": ACCOUNT_ID,
+                "query": "SELECT count(*) FROM Log WHERE event = 'http.request' FACET status TIMESERIES 5 minutes SINCE 3 hours ago"
+              }
+            ]
+          }
         },
         {
           "title": "Traces — duração média por rota (spans de servidor)",
-          "layout": { "column": 1, "row": 7, "width": 6, "height": 3 },
-          "visualization": { "id": "viz.bar" },
-          "rawConfiguration": { "nrqlQueries": [ { "accountId": ACCOUNT_ID, "query": "SELECT average(duration.ms) AS 'ms' FROM Span WHERE service.name LIKE 'oficina-api%' AND span.kind = 'server' FACET http.route SINCE 3 hours ago LIMIT 20" } ] }
+          "layout": {
+            "column": 1,
+            "row": 7,
+            "width": 6,
+            "height": 3
+          },
+          "visualization": {
+            "id": "viz.bar"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": ACCOUNT_ID,
+                "query": "SELECT average(duration.ms) AS 'ms' FROM Span WHERE service.name IN ('oficina-os-service', 'oficina-billing-service', 'oficina-execution-service') AND span.kind = 'server' FACET http.route SINCE 3 hours ago LIMIT 20"
+              }
+            ]
+          }
         },
         {
           "title": "Traces — tempo em banco de dados (ms)",
-          "layout": { "column": 7, "row": 7, "width": 6, "height": 3 },
-          "visualization": { "id": "viz.line" },
-          "rawConfiguration": { "nrqlQueries": [ { "accountId": ACCOUNT_ID, "query": "SELECT average(duration.ms) AS 'ms' FROM Span WHERE service.name LIKE 'oficina-api%' AND db.system.name = 'postgresql' TIMESERIES 5 minutes SINCE 3 hours ago" } ] }
+          "layout": {
+            "column": 7,
+            "row": 7,
+            "width": 6,
+            "height": 3
+          },
+          "visualization": {
+            "id": "viz.line"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": ACCOUNT_ID,
+                "query": "SELECT average(duration.ms) AS 'ms' FROM Span WHERE service.name IN ('oficina-os-service', 'oficina-billing-service', 'oficina-execution-service') AND db.system.name = 'postgresql' TIMESERIES 5 minutes SINCE 3 hours ago"
+              }
+            ]
+          }
         }
       ]
     },
@@ -90,39 +463,123 @@
       "widgets": [
         {
           "title": "CPU por pod (cores)",
-          "layout": { "column": 1, "row": 1, "width": 6, "height": 3 },
-          "visualization": { "id": "viz.line" },
-          "rawConfiguration": { "nrqlQueries": [ { "accountId": ACCOUNT_ID, "query": "SELECT average(cpuUsedCores) FROM K8sContainerSample WHERE namespaceName IN ('oficina-api', 'oficina-api-homolog') FACET podName TIMESERIES 1 minute SINCE 1 hour ago" } ] }
+          "layout": {
+            "column": 1,
+            "row": 1,
+            "width": 6,
+            "height": 3
+          },
+          "visualization": {
+            "id": "viz.line"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": ACCOUNT_ID,
+                "query": "SELECT average(cpuUsedCores) FROM K8sContainerSample WHERE namespaceName IN ('oficina-api', 'oficina-billing', 'oficina-execution') FACET podName TIMESERIES 1 minute SINCE 1 hour ago"
+              }
+            ]
+          }
         },
         {
           "title": "Memória por pod (MiB)",
-          "layout": { "column": 7, "row": 1, "width": 6, "height": 3 },
-          "visualization": { "id": "viz.line" },
-          "rawConfiguration": { "nrqlQueries": [ { "accountId": ACCOUNT_ID, "query": "SELECT average(memoryWorkingSetBytes) / 1048576 AS 'MiB' FROM K8sContainerSample WHERE namespaceName IN ('oficina-api', 'oficina-api-homolog') FACET podName TIMESERIES 1 minute SINCE 1 hour ago" } ] }
+          "layout": {
+            "column": 7,
+            "row": 1,
+            "width": 6,
+            "height": 3
+          },
+          "visualization": {
+            "id": "viz.line"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": ACCOUNT_ID,
+                "query": "SELECT average(memoryWorkingSetBytes) / 1048576 AS 'MiB' FROM K8sContainerSample WHERE namespaceName IN ('oficina-api', 'oficina-billing', 'oficina-execution') FACET podName TIMESERIES 1 minute SINCE 1 hour ago"
+              }
+            ]
+          }
         },
         {
           "title": "Réplicas do HPA (desejadas x atuais)",
-          "layout": { "column": 1, "row": 4, "width": 6, "height": 3 },
-          "visualization": { "id": "viz.line" },
-          "rawConfiguration": { "nrqlQueries": [ { "accountId": ACCOUNT_ID, "query": "SELECT latest(desiredReplicas) AS 'desejadas', latest(currentReplicas) AS 'atuais' FROM K8sHpaSample WHERE namespaceName = 'oficina-api' TIMESERIES 1 minute SINCE 1 hour ago" } ] }
+          "layout": {
+            "column": 1,
+            "row": 4,
+            "width": 6,
+            "height": 3
+          },
+          "visualization": {
+            "id": "viz.line"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": ACCOUNT_ID,
+                "query": "SELECT latest(desiredReplicas) AS 'desejadas', latest(currentReplicas) AS 'atuais' FROM K8sHpaSample WHERE namespaceName IN ('oficina-api', 'oficina-billing', 'oficina-execution') FACET namespaceName TIMESERIES 1 minute SINCE 1 hour ago"
+              }
+            ]
+          }
         },
         {
           "title": "Uso de CPU dos nós (%)",
-          "layout": { "column": 7, "row": 4, "width": 6, "height": 3 },
-          "visualization": { "id": "viz.line" },
-          "rawConfiguration": { "nrqlQueries": [ { "accountId": ACCOUNT_ID, "query": "SELECT average(cpuUsedCores) / average(allocatableCpuCores) * 100 AS '% CPU' FROM K8sNodeSample FACET nodeName TIMESERIES 1 minute SINCE 1 hour ago" } ] }
+          "layout": {
+            "column": 7,
+            "row": 4,
+            "width": 6,
+            "height": 3
+          },
+          "visualization": {
+            "id": "viz.line"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": ACCOUNT_ID,
+                "query": "SELECT average(cpuUsedCores) / average(allocatableCpuCores) * 100 AS '% CPU' FROM K8sNodeSample FACET nodeName TIMESERIES 1 minute SINCE 1 hour ago"
+              }
+            ]
+          }
         },
         {
           "title": "Uptime do /health (Synthetics)",
-          "layout": { "column": 1, "row": 7, "width": 4, "height": 3 },
-          "visualization": { "id": "viz.billboard" },
-          "rawConfiguration": { "nrqlQueries": [ { "accountId": ACCOUNT_ID, "query": "SELECT percentage(count(*), WHERE result = 'SUCCESS') AS 'uptime %' FROM SyntheticCheck WHERE monitorName = 'oficina-api-health' SINCE 24 hours ago" } ] }
+          "layout": {
+            "column": 1,
+            "row": 7,
+            "width": 4,
+            "height": 3
+          },
+          "visualization": {
+            "id": "viz.billboard"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": ACCOUNT_ID,
+                "query": "SELECT percentage(count(*), WHERE result = 'SUCCESS') AS 'uptime %' FROM SyntheticCheck WHERE monitorName = 'oficina-api-health' SINCE 24 hours ago"
+              }
+            ]
+          }
         },
         {
           "title": "Healthchecks — duração (ms)",
-          "layout": { "column": 5, "row": 7, "width": 8, "height": 3 },
-          "visualization": { "id": "viz.line" },
-          "rawConfiguration": { "nrqlQueries": [ { "accountId": ACCOUNT_ID, "query": "SELECT average(duration) AS 'ms' FROM SyntheticCheck WHERE monitorName = 'oficina-api-health' TIMESERIES 5 minutes SINCE 6 hours ago" } ] }
+          "layout": {
+            "column": 5,
+            "row": 7,
+            "width": 8,
+            "height": 3
+          },
+          "visualization": {
+            "id": "viz.line"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": ACCOUNT_ID,
+                "query": "SELECT average(duration) AS 'ms' FROM SyntheticCheck WHERE monitorName = 'oficina-api-health' TIMESERIES 5 minutes SINCE 6 hours ago"
+              }
+            ]
+          }
         }
       ]
     }
