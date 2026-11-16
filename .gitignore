@@ -21,8 +21,13 @@ vendor/
 coverage.out
 coverage.html
 
-# Terraform (moved to oficina-infra-k8s / oficina-infra-db)
-infra/
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+tfplan
 
 # Local working documents
 docs/roadmap-*.md

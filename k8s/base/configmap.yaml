@@ -5,6 +5,11 @@ metadata:
 data:
   SERVER_PORT: "8080"
   APP_ENV: "production"
+  AWS_REGION: "us-east-1"
+  SAGA_REPLIES_QUEUE: "oficina-saga-replies"
+  BILLING_COMMANDS_QUEUE: "oficina-billing-commands"
+  EXECUTION_COMMANDS_QUEUE: "oficina-execution-commands"
+  SAGA_STEP_TIMEOUT: "72h"
   EMAIL_FROM: "onboarding@resend.dev"
-  OTEL_SERVICE_NAME: "oficina-api"
+  OTEL_SERVICE_NAME: "oficina-os-service"
   OTEL_EXPORTER_OTLP_ENDPOINT: "https://otlp.nr-data.net:4318"

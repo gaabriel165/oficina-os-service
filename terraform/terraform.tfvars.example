@@ -1,0 +1,4 @@
+region = "us-east-1"
+
+# Optional overrides (defaults shown):
+# max_receive_count = 5
