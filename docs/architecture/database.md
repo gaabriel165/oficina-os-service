@@ -3,9 +3,11 @@
 | | |
 |---|---|
 | **Status** | Vigente |
-| **Data** | 2026-09-13 |
+| **Data** | 2026-11-16 |
 | **Autor** | Gabriel Camargo |
-| **Relacionado** | [RFC-002](./rfc/RFC-002-escolha-do-banco-de-dados.md), [ADR-008](./adr/ADR-008-migrations-no-startup-da-aplicacao.md) |
+| **Relacionado** | [RFC-002](./rfc/RFC-002-escolha-do-banco-de-dados.md), [RFC-007](./rfc/RFC-007-banco-nosql-do-execution.md), [ADR-008](./adr/ADR-008-migrations-no-startup-da-aplicacao.md), [ADR-009](./adr/ADR-009-microsservicos-e-banco-por-servico.md) |
+
+> As seções 1 a 5 descrevem o banco único do monólito até a Fase 3 e ficam como histórico. O modelo vigente, com um banco por microsserviço, está na [seção 6](#6-fase-4--um-banco-por-serviço).
 
 ## 1. Justificativa formal do PostgreSQL
 
@@ -194,3 +196,172 @@ Chaves estrangeiras no PostgreSQL **não** criam índice automaticamente na colu
 - **Timestamps.** Todas as tabelas de agregado têm `created_at` e `updated_at`; tabelas de item (`service_order_items`, `service_order_parts`) herdam o ciclo de vida da OS e por isso não os repetem.
 - **Conexão.** A aplicação e a Lambda usam `sslmode=require` contra o RDS privado. O acesso é restrito por security group (nós do EKS e SG `db-client` da Lambda), sem IP público.
 - **Unicidade.** `customers.document`, `vehicles.plate` e `users.email` são `UNIQUE`; a aplicação traduz a violação em `409 Conflict`.
+
+## 6. Fase 4 — um banco por serviço
+
+Cada microsserviço é dono dos seus dados e nenhum lê o banco do outro ([ADR-009](./adr/ADR-009-microsservicos-e-banco-por-servico.md)). Não existem chaves estrangeiras entre serviços: a ligação é o id da ordem de serviço, que viaja nas mensagens da saga.
+
+| Serviço | Banco | Por quê |
+|---|---|---|
+| OS Service | PostgreSQL (RDS, `oficina-infra-db`) | Cadastros relacionais e a saga, que muda ordem, estado, histórico e outbox na mesma transação |
+| Billing Service | PostgreSQL (RDS próprio) | Dinheiro: valores exatos (`DECIMAL`), unicidade de orçamento e de pagamento por ordem, transação com o outbox |
+| Execution Service | DynamoDB | Ordem de trabalho lida e gravada inteira pela chave, sem junções; cobrança por requisição |
+
+### 6.1 OS Service — migrations `000011` a `000015`
+
+Nenhuma migration anterior foi alterada. A `000011` remove do OS o que passou a pertencer aos outros serviços (`parts`, `services`, `service_order_items`, `service_order_parts`) e acrescenta à ordem as referências ao orçamento e ao pagamento.
+
+```mermaid
+erDiagram
+    customers ||--o{ vehicles : "possui"
+    customers ||--o{ service_orders : "abre"
+    vehicles ||--o{ service_orders : "e atendido em"
+    service_orders ||--o{ service_order_status_history : "registra"
+    service_orders ||--|| sagas : "e conduzida por"
+    sagas ||--o{ saga_steps : "registra"
+
+    service_orders {
+        uuid id PK
+        uuid customer_id FK
+        uuid vehicle_id FK
+        varchar status "received ... delivered ou cancelled"
+        text notes
+        decimal total_amount "vem do BudgetGenerated"
+        uuid budget_id "id no Billing, sem FK"
+        uuid payment_id "id no Billing, sem FK"
+        text checkout_url
+        text cancellation_reason
+        timestamp started_at
+        timestamp finished_at
+    }
+
+    service_order_status_history {
+        uuid id PK
+        uuid service_order_id FK
+        varchar from_status
+        varchar to_status
+        text reason
+        timestamptz occurred_at
+    }
+
+    sagas {
+        uuid id PK
+        uuid service_order_id FK "UNIQUE"
+        varchar status "running, compensating, completed, compensated"
+        varchar step "diagnosis, budget_approval, payment, execution"
+        text pending_compensations
+        text failure_reason
+        timestamptz deadline
+        int version "controle otimista"
+        timestamptz finished_at
+    }
+
+    saga_steps {
+        uuid id PK
+        uuid saga_id FK
+        varchar kind "command, reply, compensation, failure, outcome"
+        varchar name
+        text detail
+        timestamptz occurred_at
+    }
+
+    outbox_messages {
+        uuid id PK
+        varchar destination
+        varchar message_type
+        uuid saga_id
+        uuid order_id
+        jsonb payload
+        jsonb trace_context
+        timestamptz occurred_at
+        timestamptz published_at "nulo enquanto pendente"
+    }
+
+    processed_messages {
+        uuid id PK "message_id recebido"
+    }
+```
+
+| Tabela | Migration | Uso |
+|---|---|---|
+| `service_orders` (alterada) | `000011` | Perde os itens; ganha `budget_id`, `payment_id`, `checkout_url` e `cancellation_reason` |
+| `service_order_status_history` | `000012` | Uma linha por mudança de status, com o motivo do cancelamento; atende `GET /service-orders/{id}/history` |
+| `sagas` e `saga_steps` | `000013` | Estado da saga e registro de comandos, respostas, falhas e compensações; atende `GET /service-orders/{id}/saga` |
+| `outbox_messages` | `000014` | Mensagens a publicar, gravadas na transação da mudança de estado |
+| `processed_messages` | `000015` | Ids das mensagens já consumidas |
+
+Índices: `sagas(deadline)` parcial para sagas `running` com prazo (busca das vencidas), `outbox_messages(created_at)` parcial para `published_at IS NULL` (fila do relay), `saga_steps(saga_id, occurred_at)` e `service_order_status_history(service_order_id, occurred_at)`.
+
+### 6.2 Billing Service
+
+```mermaid
+erDiagram
+    budgets ||--|{ budget_items : "contem"
+    budgets ||--o| payments : "e cobrado por"
+
+    budgets {
+        uuid id PK
+        uuid order_id "UNIQUE - ordem de servico no OS"
+        uuid saga_id
+        uuid customer_id
+        varchar customer_name "copia recebida na mensagem"
+        varchar customer_email "copia recebida na mensagem"
+        varchar status "pending_approval, approved, rejected, cancelled"
+        decimal total_amount
+        text rejection_reason
+        timestamptz decided_at
+    }
+
+    budget_items {
+        uuid id PK
+        uuid budget_id FK
+        varchar kind "service ou part"
+        varchar reference_id "id no catalogo do Execution"
+        varchar description
+        int quantity
+        decimal unit_price "congelado no diagnostico"
+    }
+
+    payments {
+        uuid id PK
+        uuid budget_id FK
+        uuid order_id "UNIQUE"
+        uuid saga_id
+        decimal amount
+        varchar status "pending, confirmed, failed, refunded"
+        varchar provider "mercadopago ou fake"
+        varchar checkout_reference "id da preferencia"
+        text checkout_url
+        varchar provider_payment_id
+        text failure_reason
+    }
+```
+
+O Billing tem também as suas próprias `outbox_messages` e `processed_messages`, com a mesma estrutura das do OS. `order_id` é único em `budgets` e em `payments`: repetir `GenerateBudget` ou `RequestPayment` devolve o registro existente em vez de criar outro. O nome e o e-mail do cliente e os itens chegam copiados no comando `GenerateBudget`; o Billing não consulta o OS nem o Execution.
+
+### 6.3 Execution Service — DynamoDB
+
+Quatro tabelas com chave de partição `id` (string), sem chave de ordenação, cobrança por requisição ([RFC-007](./rfc/RFC-007-banco-nosql-do-execution.md)).
+
+| Tabela | Item | Observação |
+|---|---|---|
+| `oficina-execution-work-orders` | Ordem de trabalho; `id` é o id da ordem de serviço | Serviços e peças do diagnóstico ficam **embutidos** no item, com nome e preço congelados |
+| `oficina-execution-catalog` | Peça ou serviço do catálogo | A peça guarda o saldo de estoque |
+| `oficina-execution-outbox` | Resposta da saga a publicar | Lida por varredura e apagada depois de publicada |
+| `oficina-execution-processed-messages` | Id de mensagem já consumida | Consultada antes de processar cada mensagem |
+
+As mudanças que precisam ser atômicas usam `TransactWriteItems`:
+
+- **Reserva de estoque** (`StartExecution`): grava a ordem de trabalho em execução, debita cada peça com a condição de saldo suficiente e inclui `ExecutionStarted` no outbox. Se uma peça não tem saldo, nada é gravado e o serviço responde `ExecutionRejected`.
+- **Devolução** (`CancelWorkOrder` com estoque reservado): cancela a ordem, devolve o saldo de cada peça e inclui `WorkOrderCancelled` no outbox.
+- **Demais transições**: ordem de trabalho e mensagem de saída na mesma transação.
+
+### 6.4 SQL x NoSQL
+
+| Critério | PostgreSQL (OS e Billing) | DynamoDB (Execution) |
+|---|---|---|
+| Forma do dado | Vários agregados relacionados (cliente → veículo → ordem → saga) | Um agregado autocontido por chave |
+| Consultas | Filtros e ordenações variados, histórico, junções | Leitura por id; listagem pequena por status |
+| Consistência | Transação multi-tabela e chaves estrangeiras dentro do serviço | Transação de até 100 itens, suficiente para uma ordem e suas peças |
+| Custo parado | Instância ligada por hora | Zero sem requisições |
+| Esquema | Migrations versionadas | Sem esquema; tabelas criadas pelo Terraform |

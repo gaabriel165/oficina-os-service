@@ -2,9 +2,11 @@
 
 | | |
 |---|---|
-| **Status** | Aceita |
+| **Status** | Substituída por [ADR-009](./ADR-009-microsservicos-e-banco-por-servico.md) e [ADR-010](./ADR-010-saga-orquestrada.md) |
 | **Data** | 2026-09-13 |
 | **Autor** | Gabriel Camargo |
+
+> **Substituída na Fase 4 (2026-11-16).** Com a divisão em microsserviços, os passos da ordem de serviço passaram a trafegar por filas SQS em uma saga orquestrada; REST continua valendo para as chamadas de pessoas e para a consulta interna da Lambda. O texto abaixo é o registro histórico.
 
 ## Contexto
 

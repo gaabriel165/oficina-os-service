@@ -3,22 +3,27 @@
 | | |
 |---|---|
 | **Status** | Vigente |
-| **Data** | 2026-09-13 |
+| **Data** | 2026-11-16 |
 | **Autor** | Gabriel Camargo |
 
-## 1. Visão de nuvem — APIs, banco, serverless e monitoramento
+Na Fase 4 o monólito foi dividido em três microsserviços. Este documento mostra onde cada um roda, com quem conversa e quem provisiona cada peça.
 
-O diagrama abaixo mostra todos os componentes que participam de uma requisição em produção, quem os provisiona e para onde a telemetria flui. Setas contínuas são tráfego de requisição; setas tracejadas são deploy, leitura de configuração ou telemetria.
+## 1. Visão de nuvem — microsserviços, filas, bancos, serverless e monitoramento
+
+Setas contínuas são tráfego de requisição ou de mensagem; setas tracejadas são deploy, leitura de configuração ou telemetria.
 
 ```mermaid
 flowchart TB
-    subgraph Users["Usuários"]
+    subgraph Users["Usuários e sistemas externos"]
         Customer["Cliente da oficina"]
-        Operator["Operador da oficina"]
+        Operator["Operador / mecânico"]
+        MP["Mercado Pago"]
     end
 
     subgraph GitHub["GitHub"]
-        RepoApp["oficina-api"]
+        RepoOS["oficina-os-service"]
+        RepoBilling["oficina-billing-service"]
+        RepoExecution["oficina-execution-service"]
         RepoK8s["oficina-infra-k8s"]
         RepoDb["oficina-infra-db"]
         RepoLambda["oficina-lambda-auth"]
@@ -27,146 +32,188 @@ flowchart TB
 
     subgraph AWS["AWS us-east-1"]
         APIGW["API Gateway HTTP API"]
-        LambdaAuth["Lambda auth-cpf"]
+        LambdaAuth["Lambda auth-cpf (fora da VPC)"]
         LambdaAuthz["Lambda authorizer"]
-        ECR[("ECR")]
+        ECR[("ECR - um repositório por serviço")]
         SSM[("SSM Parameter Store")]
         S3State[("S3 - Terraform state")]
-        CloudWatch["CloudWatch Logs"]
+
+        subgraph SQS["Amazon SQS"]
+            QE[["oficina-execution-commands + dlq"]]
+            QB[["oficina-billing-commands + dlq"]]
+            QR[["oficina-saga-replies + dlq"]]
+        end
+
+        DDB[("DynamoDB - Execution<br/>work-orders, catalog, outbox, processed-messages")]
 
         subgraph VPC["VPC 10.0.0.0/16 - 2 AZs"]
             subgraph PublicSubnets["Subnets públicas"]
-                NLB["Network Load Balancer"]
+                NLBOS["NLB - OS"]
+                NLBB["NLB - Billing"]
+                NLBE["NLB - Execution"]
                 NAT["NAT Gateway"]
             end
             subgraph PrivateSubnets["Subnets privadas"]
-                subgraph EKS["EKS 1.34 - node group t3.small 2..4"]
-                    subgraph NsProd["namespace oficina-api"]
-                        PodProd["Pods oficina-api"]
-                        HPAProd["HPA 2..6 por CPU"]
+                subgraph EKS["EKS 1.34 - node group t3.medium 2..4"]
+                    subgraph NsOS["namespace oficina-api"]
+                        PodOS["Pods oficina-os-service<br/>HPA 2..6"]
                     end
-                    subgraph NsHomolog["namespace oficina-api-homolog"]
-                        PodHomolog["Pod oficina-api"]
+                    subgraph NsBilling["namespace oficina-billing"]
+                        PodBilling["Pods oficina-billing-service<br/>HPA 1..4"]
+                    end
+                    subgraph NsExecution["namespace oficina-execution"]
+                        PodExecution["Pods oficina-execution-service<br/>HPA 1..4"]
                     end
                     NRAgent["New Relic nri-bundle"]
                 end
-                RDS[("RDS PostgreSQL 16")]
+                RDSOS[("RDS PostgreSQL 16 - OS")]
+                RDSB[("RDS PostgreSQL 16 - Billing")]
             end
         end
     end
 
     subgraph NewRelic["New Relic"]
-        NRAPM["APM e traces"]
+        NRAPM["APM e traces distribuídos"]
         NRLogs["Logs"]
         NRInfra["Infra Kubernetes"]
-        NRDash["Dashboards"]
-        NRAlerts["Alertas"]
-        NRSynth["Synthetics - uptime"]
+        NRDash["Dashboards e alertas"]
     end
 
     Resend["Resend - e-mail"]
     BrasilAPI["BrasilAPI - CNPJ"]
 
     Customer -->|"POST /auth/cpf"| APIGW
-    Operator -->|"POST /api/v1/auth/login"| APIGW
-    Customer -->|"GET /api/v1/service-orders/id/status"| APIGW
+    Customer -->|"/api/v1/budgets com Bearer JWT"| APIGW
     Operator -->|"/api/v1/** com Bearer JWT"| APIGW
+    MP -->|"POST /api/v1/webhooks/mercadopago"| APIGW
 
     APIGW --> LambdaAuth
     APIGW -.->|"valida JWT"| LambdaAuthz
-    APIGW -->|"HTTP proxy"| NLB
-    NLB --> PodProd
-    LambdaAuth --> RDS
-    PodProd --> RDS
-    PodHomolog --> RDS
-    PodProd --> Resend
-    PodProd --> BrasilAPI
-    HPAProd -.->|"escala"| PodProd
+    APIGW -->|"HTTP proxy"| NLBOS
+    APIGW -->|"HTTP proxy"| NLBB
+    APIGW -->|"HTTP proxy"| NLBE
+    NLBOS --> PodOS
+    NLBB --> PodBilling
+    NLBE --> PodExecution
+    LambdaAuth -->|"GET /internal/customers/by-document"| NLBOS
 
-    LambdaAuth -.->|"jwt_secret, database_url"| SSM
+    PodOS -->|"comandos"| QE
+    PodOS -->|"comandos"| QB
+    QE --> PodExecution
+    QB --> PodBilling
+    PodExecution -->|"respostas"| QR
+    PodBilling -->|"respostas"| QR
+    QR --> PodOS
+
+    PodOS --> RDSOS
+    PodBilling --> RDSB
+    PodExecution --> DDB
+    PodBilling -->|"preferência, consulta, estorno"| MP
+    PodOS --> Resend
+    PodBilling --> Resend
+    PodOS --> BrasilAPI
+
+    LambdaAuth -.->|"jwt_secret, internal_api_secret"| SSM
     LambdaAuthz -.->|"jwt_secret"| SSM
-    LambdaAuth -.-> CloudWatch
-    LambdaAuthz -.-> CloudWatch
 
-    RepoApp --> Actions
+    RepoOS --> Actions
+    RepoBilling --> Actions
+    RepoExecution --> Actions
     RepoK8s --> Actions
     RepoDb --> Actions
     RepoLambda --> Actions
+    Actions -.->|"terraform apply"| S3State
     Actions -.->|"build e push"| ECR
     Actions -.->|"kubectl apply -k"| EKS
-    Actions -.->|"terraform apply"| S3State
     Actions -.->|"lê parâmetros"| SSM
     EKS -.->|"pull"| ECR
 
-    PodProd -.->|"OTLP traces"| NRAPM
-    PodProd -.->|"stdout JSON"| NRAgent
-    NRAgent -.->|"logs"| NRLogs
+    PodOS -.->|"OTLP traces"| NRAPM
+    PodBilling -.->|"OTLP traces"| NRAPM
+    PodExecution -.->|"OTLP traces"| NRAPM
+    NRAgent -.->|"logs JSON"| NRLogs
     NRAgent -.->|"CPU e memória"| NRInfra
-    NRSynth -.->|"ping /health"| APIGW
     NRLogs --> NRDash
     NRAPM --> NRDash
     NRInfra --> NRDash
-    NRLogs --> NRAlerts
 ```
 
 ### Componentes e responsáveis
 
 | Componente | Função | Repositório que provisiona |
 |---|---|---|
-| **API Gateway (HTTP API)** | Porta de entrada única. Roteia rotas públicas direto para o cluster e protege `ANY /api/v1/{proxy+}` com o Lambda authorizer. Integração `HTTP_PROXY` para o NLB. | `oficina-lambda-auth` |
-| **Lambda `auth-cpf`** | Valida o CPF, consulta `customers` no RDS, exige `status = active` e emite JWT HS256 com validade de 1 h. Roda dentro da VPC (subnets privadas) com o SG `db-client`. | `oficina-lambda-auth` |
-| **Lambda `authorizer`** | Authorizer do tipo REQUEST com resposta simples. Valida assinatura e expiração do JWT usando o segredo do SSM. Resultado cacheado por 5 min por token. | `oficina-lambda-auth` |
-| **NLB** | Load balancer criado pelo `Service` do Kubernetes (tipo `LoadBalancer`). Descoberto pelo Terraform da Lambda por tag. | `oficina-api` (via manifesto) |
-| **EKS + node group** | Cluster gerenciado 1.34 com 2 a 4 nós `t3.small` (AMI AL2023). Dois namespaces: `oficina-api` (produção) e `oficina-api-homolog`. | `oficina-infra-k8s` |
-| **Pods `oficina-api` + HPA** | Aplicação Go em Clean Architecture. HPA de 2 a 6 réplicas a 60% de CPU. Probes em `/health`. | `oficina-api` |
-| **RDS PostgreSQL 16.15** | `db.t3.micro`, privado, gp3 20 GB criptografado, backup 1 dia, Performance Insights e export de logs. Aceita 5432 apenas do SG dos nós e do SG `db-client`. | `oficina-infra-db` |
-| **ECR** | Registry privado da imagem; scan de vulnerabilidades no push. | `oficina-infra-k8s` |
-| **SSM Parameter Store** | Segredos como `SecureString`: `/oficina-api/jwt_secret`, `/oficina-api/webhook_secret` (k8s) e `/oficina-api/database_url` (db). Lidos pelo CD do app e pelo Terraform da Lambda. | `oficina-infra-k8s`, `oficina-infra-db` |
-| **S3 (Terraform state)** | Bucket `oficina-api-terraform-state-728750563430` com lock nativo; chaves `k8s/`, `db/`, `lambda/`. | criado uma vez, fora do Terraform |
-| **OIDC + roles IAM** | Um role por repositório, assumido pelo GitHub Actions sem chave estática. | `oficina-infra-k8s` |
-| **CloudWatch Logs** | Logs das Lambdas e do RDS. | `oficina-lambda-auth`, `oficina-infra-db` |
-| **New Relic `nri-bundle`** | Agente de infraestrutura, kube-state-metrics e Fluent Bit (logs) instalados via Helm. | `oficina-infra-k8s` (CD) |
-| **New Relic APM / Logs / Infra** | Traces via OTLP direto da aplicação, logs JSON via Fluent Bit, CPU e memória dos pods. | — |
-| **New Relic Dashboards / Alertas / Synthetics** | Dashboards NRQL (volume diário de OS, tempo médio por status, erros de integração, latência, recursos), alerta de `service_order.failed`, ping de uptime em `/health`. | — |
-| **Resend** | Envio de e-mail ao cliente em cada mudança de status (best-effort). | — |
+| **API Gateway (HTTP API)** | Porta de entrada única. Uma integração `HTTP_PROXY` por microsserviço; orçamentos e pagamentos vão para o Billing, ordens de trabalho, peças e serviços para o Execution, o restante de `/api/v1` para o OS. Rotas protegidas passam pelo Lambda authorizer. | `oficina-lambda-auth` |
+| **Lambda `auth-cpf`** | Valida o CPF, consulta o cliente em `GET /internal/customers/by-document/{document}` do OS Service (cabeçalho `X-Internal-Secret`), exige `status = active` e emite JWT HS256. Roda fora da VPC e não acessa banco. | `oficina-lambda-auth` |
+| **Lambda `authorizer`** | Authorizer REQUEST com resposta simples; valida assinatura e expiração do JWT. Cache de 5 min por token. | `oficina-lambda-auth` |
+| **NLB (um por serviço)** | Criado pelo `Service` do tipo `LoadBalancer` de cada microsserviço. Descoberto pelo Terraform do gateway pela tag `kubernetes.io/service-name`. | cada serviço (via manifesto) |
+| **EKS + node group** | Cluster 1.34 com 2 a 4 nós `t3.medium` (AL2023). Três namespaces de produção: `oficina-api`, `oficina-billing` e `oficina-execution`. Não há ambiente de homologação ([ADR-013](./adr/ADR-013-infraestrutura-por-servico-e-irsa.md)). | `oficina-infra-k8s` |
+| **`oficina-os-service`** | Clientes, veículos, ordens de serviço e orquestrador da saga. HPA de 2 a 6 réplicas. | `oficina-os-service` |
+| **`oficina-billing-service`** | Orçamento e pagamento pelo Mercado Pago. HPA de 1 a 4 réplicas. | `oficina-billing-service` |
+| **`oficina-execution-service`** | Diagnóstico, execução, catálogo e estoque. HPA de 1 a 4 réplicas. | `oficina-execution-service` |
+| **SQS `oficina-saga-replies` + DLQ** | Respostas dos participantes, consumidas pelo orquestrador. | `oficina-os-service` (`terraform/`) |
+| **SQS `oficina-billing-commands` + DLQ** | Comandos da saga para o Billing. | `oficina-billing-service` (`terraform/`) |
+| **SQS `oficina-execution-commands` + DLQ** | Comandos da saga para o Execution. | `oficina-execution-service` (`terraform/`) |
+| **RDS PostgreSQL — OS** | `db.t3.micro`, privado, criptografado. Aceita 5432 apenas dos nós do cluster. | `oficina-infra-db` |
+| **RDS PostgreSQL — Billing** | Instância própria `oficina-billing-service-db`, `db.t3.micro`, privada. | `oficina-billing-service` (`terraform/`) |
+| **DynamoDB — Execution** | Quatro tabelas com cobrança por requisição. | `oficina-execution-service` (`terraform/`) |
+| **IAM roles dos pods (IRSA)** | Uma role por serviço, assumida pelo `ServiceAccount` pelo provedor OIDC do cluster, com acesso só às filas e tabelas daquele serviço. | cada serviço (`terraform/`) |
+| **ECR** | Um repositório de imagem por microsserviço, com scan no push. | `oficina-infra-k8s` |
+| **SSM Parameter Store** | `/oficina-api/jwt_secret` e `/oficina-api/internal_api_secret` (k8s), `/oficina-api/database_url` (db), `/oficina-billing-service/database_url` (billing), `/oficina-api/api_gateway_url` (lambda). | vários |
+| **S3 (Terraform state)** | Bucket único com lock nativo; chaves `k8s/`, `db/`, `os/`, `billing/`, `execution/`, `lambda/`. | criado uma vez, fora do Terraform |
+| **OIDC + roles do GitHub Actions** | Uma role por repositório, assumida sem chave estática. | `oficina-infra-k8s` |
+| **Mercado Pago** | Checkout Pro: preferência de pagamento, consulta, estorno e webhook assinado. | — |
+| **New Relic** | Traces via OTLP direto dos três serviços, logs JSON via Fluent Bit, CPU e memória dos pods, dashboards e alertas. | `oficina-infra-k8s` (agentes) |
+| **Resend** | E-mail ao cliente em cada mudança de status, no orçamento e no link de pagamento (best-effort). | — |
 | **BrasilAPI** | Validação de CNPJ ativo no cadastro de cliente PJ. | — |
 
-## 2. Camadas internas da aplicação — Clean Architecture
+## 2. Camadas internas do OS Service — Clean Architecture
 
-As dependências apontam sempre **para dentro**: a API depende dos casos de uso, que dependem do domínio. A infraestrutura implementa as **portas** definidas no domínio. Na Fase 3 a camada de infraestrutura ganhou o adapter de observabilidade (logger `slog` em JSON e provider OpenTelemetry), consumido pela camada de API via middlewares.
+As dependências apontam sempre para dentro. Peças, serviços e itens da ordem saíram deste serviço na Fase 4 (foram para o Execution e o Billing); entraram a saga, o orquestrador, o outbox e os adapters de SQS. O Billing e o Execution seguem a mesma divisão de camadas.
 
 ```mermaid
 flowchart TD
     subgraph API["API - Frameworks e Drivers (Gin)"]
         H["Handlers"]
-        MW["Middlewares: JWT, Webhook, Request-ID, Logger, OTel"]
+        MW["Middlewares: JWT, papel, segredo interno, Request-ID, Logger, OTel"]
         DTO["DTOs e mapeamento de erros"]
     end
-    subgraph APP["Application - Casos de Uso"]
-        UC["Use Cases: serviceorder, customer, vehicle, part, service, auth"]
+    subgraph APP["Application"]
+        UC["Use Cases: serviceorder, customer, vehicle, auth"]
+        ORCH["Orquestrador da saga + transições"]
+        TM["Monitor de prazo"]
+        RELAY["Relay do outbox"]
         NOTIF["OrderStatusNotifier"]
     end
-    subgraph DOM["Domain - Entidades e Regras"]
-        ENT["Entities: ServiceOrder, Customer, Vehicle, Part, Service, User"]
-        VO["Value Objects: CPF, CNPJ, Plate, OrderStatus, CustomerStatus"]
-        PORT["Ports: Repositories, NotificationService, CNPJValidationService"]
+    subgraph DOM["Domain"]
+        ENT["Entities: ServiceOrder, Saga, Customer, Vehicle, User"]
+        VO["Value Objects: CPF, CNPJ, Plate, OrderStatus, SagaStatus, SagaStep"]
+        MSG["Contratos de mensagens"]
+        PORT["Ports: Repositories, OutboxRepository, PublisherService, NotificationService"]
     end
     subgraph INFRA["Infrastructure - Adapters"]
-        GORM["Repositórios GORM + PostgreSQL"]
+        GORM["Repositórios GORM + PostgreSQL (saga, outbox, mensagens processadas)"]
+        SQSA["SQS: publisher, consumer, router, contexto de trace"]
         RESEND["Resend Notifier"]
         BRASIL["BrasilAPI Client"]
         OBS["Observability: slog JSON + OpenTelemetry OTLP"]
     end
 
     H --> UC
-    MW --> UC
     MW -.-> OBS
+    UC --> ORCH
+    SQSA -->|"respostas"| ORCH
+    ORCH --> PORT
+    ORCH --> ENT
+    ORCH --> MSG
+    TM --> ORCH
+    RELAY --> PORT
     UC --> PORT
     UC --> ENT
-    UC --> NOTIF
+    ORCH --> NOTIF
     NOTIF --> PORT
     ENT --> VO
     GORM -. implementa .-> PORT
+    SQSA -. implementa .-> PORT
     RESEND -. implementa .-> PORT
     BRASIL -. implementa .-> PORT
 ```
@@ -175,19 +222,34 @@ flowchart TD
 |---|---|---|
 | Domain | `internal/domain` | nada externo |
 | Application | `internal/application` | apenas do domínio |
-| Infrastructure | `internal/infrastructure` | implementa portas do domínio; bibliotecas externas (GORM, Resend, OTel) |
+| Infrastructure | `internal/infrastructure` | implementa portas do domínio; GORM, AWS SDK, Resend, OTel |
 | API | `internal/api` | casos de uso e adapters de observabilidade |
 
 ## 3. Fluxo de deploy entre repositórios
 
-A ordem de criação da infraestrutura segue as dependências dos estados remotos. A destruição é feita na ordem inversa, removendo antes o `Service` do Kubernetes para que o NLB não bloqueie a VPC.
+A criação segue as dependências dos estados remotos; a destruição é feita na ordem inversa, removendo antes os namespaces para que os NLBs não bloqueiem a VPC.
 
 ```mermaid
 flowchart LR
-    K8s["1. oficina-infra-k8s<br/>VPC, EKS, ECR, OIDC, SSM"] --> Db["2. oficina-infra-db<br/>RDS, SG, database_url"]
-    Db --> App["3. oficina-api<br/>imagem no ECR, deploy no EKS, NLB"]
-    App --> Lambda["4. oficina-lambda-auth<br/>Lambdas, API Gateway apontando para o NLB"]
+    K8s["1. oficina-infra-k8s<br/>VPC, EKS, ECR, OIDC, SSM"] --> Db["2. oficina-infra-db<br/>RDS do OS, database_url"]
+    Db --> OS["3a. oficina-os-service<br/>fila de respostas, role do pod, deploy"]
+    K8s --> Billing["3b. oficina-billing-service<br/>RDS, fila, role do pod, deploy"]
+    K8s --> Execution["3c. oficina-execution-service<br/>DynamoDB, fila, role do pod, deploy"]
+    OS --> Lambda["4. oficina-lambda-auth<br/>Lambdas, API Gateway apontando para os três NLBs"]
+    Billing --> Lambda
+    Execution --> Lambda
     K8s -.->|"remote state k8s/"| Db
+    K8s -.->|"remote state k8s/"| OS
     K8s -.->|"remote state k8s/"| Lambda
-    Db -.->|"remote state db/"| Lambda
 ```
+
+| Estado remoto | Repositório |
+|---|---|
+| `k8s/` | `oficina-infra-k8s` |
+| `db/` | `oficina-infra-db` |
+| `os/` | `oficina-os-service` |
+| `billing/` | `oficina-billing-service` |
+| `execution/` | `oficina-execution-service` |
+| `lambda/` | `oficina-lambda-auth` |
+
+O pipeline de cada microsserviço aplica o Terraform do próprio repositório, publica a imagem e faz o rollout, sem depender do pipeline dos outros. Depois que o gateway é criado, o deploy do Billing é executado de novo para ler `/oficina-api/api_gateway_url`, usado no endereço do webhook do Mercado Pago.

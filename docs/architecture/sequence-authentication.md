@@ -3,17 +3,17 @@
 | | |
 |---|---|
 | **Status** | Vigente |
-| **Data** | 2026-09-13 |
+| **Data** | 2026-11-16 |
 | **Autor** | Gabriel Camargo |
 
 Existem **dois emissores** do mesmo tipo de token (JWT HS256, segredo único em `/oficina-api/jwt_secret`):
 
 | Ator | Rota | Emissor | Credencial | Claims principais |
 |---|---|---|---|---|
-| Cliente da oficina | `POST /auth/cpf` | Lambda `auth-cpf` | CPF (cliente ativo na base) | `sub` = id do cliente, `cpf`, `name`, `role = customer`, `iss`, `exp` (1 h) |
-| Operador | `POST /api/v1/auth/login` | Aplicação (`LoginUseCase`) | e-mail + senha (bcrypt, tabela `users`) | `sub` = id do usuário, `exp` (24 h) |
+| Cliente da oficina | `POST /auth/cpf` | Lambda `auth-cpf` | CPF (cliente ativo no OS Service) | `sub` = id do cliente, `cpf`, `name`, `role = customer`, `iss`, `exp` (1 h) |
+| Operador | `POST /api/v1/auth/login` | OS Service (`LoginUseCase`) | e-mail + senha (bcrypt, tabela `users`) | `sub` = id do usuário, `role = operator`, `exp` (24 h) |
 
-Ambos os tokens são aceitos pelo **Lambda authorizer** no API Gateway e pelo **middleware JWT** da aplicação. A validação dupla é intencional (defesa em profundidade, ver [ADR-007](./adr/ADR-007-lambda-authorizer-na-borda.md)).
+Ambos os tokens são aceitos pelo **Lambda authorizer** no API Gateway e pelo **middleware JWT** dos três microsserviços. A validação dupla é intencional (defesa em profundidade, ver [ADR-007](./adr/ADR-007-lambda-authorizer-na-borda.md)).
 
 ## 1. Autenticação de cliente por CPF
 
@@ -24,9 +24,10 @@ sequenceDiagram
     participant GW as API Gateway HTTP API
     participant L as Lambda auth-cpf
     participant SSM as SSM Parameter Store
-    participant DB as RDS PostgreSQL
+    participant OS as OS Service (rota interna)
+    participant DB as RDS PostgreSQL do OS
 
-    Note over L,SSM: No cold start a Lambda recebe jwt_secret e database_url como variáveis de ambiente resolvidas pelo Terraform a partir do SSM
+    Note over L,SSM: A Lambda recebe jwt_secret, internal_api_secret e a URL do OS Service como variáveis de ambiente resolvidas pelo Terraform
     L-->>SSM: leitura na implantação
 
     Cliente->>GW: POST /auth/cpf { "cpf": "529.982.247-25" }
@@ -37,23 +38,32 @@ sequenceDiagram
         L-->>GW: 400 { "error": "invalid cpf" }
         GW-->>Cliente: 400 Bad Request
     else CPF válido
-        L->>DB: SELECT id, name, status FROM customers WHERE document = $1
+        L->>OS: GET /internal/customers/by-document/{document}  X-Internal-Secret
+        OS->>OS: middleware InternalAuth confere o segredo
+        OS->>DB: SELECT id, name, status FROM customers WHERE document = $1
+        DB-->>OS: linha ou vazio
         alt cliente não encontrado
-            DB-->>L: 0 linhas
+            OS-->>L: 404
             L-->>GW: 404 { "error": "customer not found" }
             GW-->>Cliente: 404 Not Found
+        else OS Service indisponível
+            OS-->>L: erro ou timeout
+            L-->>GW: 502
+            GW-->>Cliente: 502 Bad Gateway
         else cliente inativo
-            DB-->>L: status = inactive
+            OS-->>L: 200 { id, name, status: inactive }
             L-->>GW: 403 { "error": "customer is not active" }
             GW-->>Cliente: 403 Forbidden
         else cliente ativo
-            DB-->>L: id, name, status = active
+            OS-->>L: 200 { id, name, status: active }
             L->>L: assina JWT HS256 (sub, cpf, name, role=customer, iss, exp = 1h)
             L-->>GW: 200 { "token": "...", "expires_in": 3600, "customer": { id, name } }
             GW-->>Cliente: 200 OK
         end
     end
 ```
+
+Desde a Fase 4 a Lambda **não acessa o banco**: o cliente pertence ao OS Service, e a consulta é feita pela rota interna `GET /internal/customers/by-document/{document}`, que exige o cabeçalho `X-Internal-Secret` (parâmetro `/oficina-api/internal_api_secret` no SSM) e não é publicada no API Gateway. Com isso a função saiu da VPC e deixou de depender do repositório do banco.
 
 ## 2. Consumo de rota protegida com o token
 
@@ -64,7 +74,7 @@ sequenceDiagram
     participant GW as API Gateway HTTP API
     participant AZ as Lambda authorizer
     participant NLB as Network Load Balancer
-    participant API as oficina-api (EKS)
+    participant API as oficina-os-service (EKS)
     participant DB as RDS PostgreSQL
 
     Cliente->>GW: GET /api/v1/service-orders  Authorization: Bearer <jwt>
@@ -103,9 +113,9 @@ sequenceDiagram
 | `POST /api/v1/auth/login`, `POST /api/v1/auth/register` | Emissão de token de operador |
 | `POST /auth/cpf` | Emissão de token de cliente (Lambda) |
 | `GET /api/v1/service-orders/{id}/status` | Consulta pública de status pelo cliente |
-| `POST /api/v1/service-orders/{id}/budget-approval` | Webhook externo autenticado pelo header `X-Webhook-Secret`, validado pela aplicação |
+| `POST /api/v1/webhooks/mercadopago` | Webhook do Mercado Pago, autenticado pela assinatura `x-signature` validada pelo Billing Service |
 
-No HTTP API a rota mais específica vence; por isso essas rotas explícitas ficam fora da proteção de `ANY /api/v1/{proxy+}`.
+No HTTP API a rota mais específica vence; por isso essas rotas explícitas ficam fora da proteção de `ANY /api/v1/{proxy+}`. O mesmo critério leva `/api/v1/budgets`, `/api/v1/payments`, `/api/v1/work-orders`, `/api/v1/parts` e `/api/v1/services` aos seus microsserviços, todas protegidas pelo authorizer.
 
 ## 3. Login de operador (fluxo existente desde a Fase 1)
 
@@ -114,7 +124,7 @@ sequenceDiagram
     autonumber
     actor Operador
     participant GW as API Gateway HTTP API
-    participant API as oficina-api (EKS)
+    participant API as oficina-os-service (EKS)
     participant DB as RDS PostgreSQL
 
     Operador->>GW: POST /api/v1/auth/login { email, password }
@@ -125,7 +135,7 @@ sequenceDiagram
     alt credenciais inválidas
         API-->>Operador: 401 { "error": "invalid credentials" }
     else válidas
-        API->>API: assina JWT HS256 (sub = user id, exp = 24h) com o mesmo segredo
+        API->>API: assina JWT HS256 (sub = user id, role = operator, exp = 24h) com o mesmo segredo
         API-->>Operador: 200 { "token": "..." }
     end
 ```
