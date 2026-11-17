@@ -342,7 +342,7 @@ make coverage/check
 
 | Serviço | Cobertura | Quality gate |
 |---|---|---|
-| OS Service | 90,6% | [SonarCloud](https://sonarcloud.io/summary/overall?id=gaabriel165_oficina-os-service) |
+| OS Service | 89,0% | [SonarCloud](https://sonarcloud.io/summary/overall?id=gaabriel165_oficina-os-service) |
 | Billing Service | 94,4% | [SonarCloud](https://sonarcloud.io/summary/overall?id=gaabriel165_oficina-billing-service) |
 | Execution Service | 94,2% | [SonarCloud](https://sonarcloud.io/summary/overall?id=gaabriel165_oficina-execution-service) |
 
