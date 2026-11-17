@@ -102,7 +102,7 @@ create_condition "Latência p95 acima de 1s" \
 echo "==> Notification destination, channel and workflow"
 RESPONSE="$(graphql 'mutation($accountId: Int!, $email: String!) {
   aiNotificationsCreateDestination(accountId: $accountId, destination: {
-    name: "Oficina API — e-mail", type: EMAIL,
+    name: "Oficina — microsserviços — e-mail", type: EMAIL,
     properties: [{ key: "email", value: $email }]
   }) { destination { id } error { ... on AiNotificationsResponseError { description } } }
 }' "$(jq -n --argjson id "$NEW_RELIC_ACCOUNT_ID" --arg e "$ALERT_EMAIL" '{accountId: $id, email: $e}')")"
@@ -111,7 +111,7 @@ DESTINATION_ID="$(echo "$RESPONSE" | jq -r '.data.aiNotificationsCreateDestinati
 
 RESPONSE="$(graphql 'mutation($accountId: Int!, $destinationId: ID!) {
   aiNotificationsCreateChannel(accountId: $accountId, channel: {
-    name: "Oficina API — canal e-mail", type: EMAIL, product: IINT, destinationId: $destinationId,
+    name: "Oficina — microsserviços — canal e-mail", type: EMAIL, product: IINT, destinationId: $destinationId,
     properties: [{ key: "subject", value: "{{ issueTitle }}" }]
   }) { channel { id } error { ... on AiNotificationsResponseError { description } } }
 }' "$(jq -n --argjson id "$NEW_RELIC_ACCOUNT_ID" --arg d "$DESTINATION_ID" '{accountId: $id, destinationId: $d}')")"
@@ -120,7 +120,7 @@ CHANNEL_ID="$(echo "$RESPONSE" | jq -r '.data.aiNotificationsCreateChannel.chann
 
 RESPONSE="$(graphql 'mutation($accountId: Int!, $policyId: String!, $channelId: ID!) {
   aiWorkflowsCreateWorkflow(accountId: $accountId, createWorkflowData: {
-    name: "Oficina API — alertas por e-mail", workflowEnabled: true, mutingRulesHandling: NOTIFY_ALL_ISSUES,
+    name: "Oficina — microsserviços — alertas por e-mail", workflowEnabled: true, mutingRulesHandling: NOTIFY_ALL_ISSUES,
     destinationConfigurations: [{ channelId: $channelId }],
     issuesFilter: { name: "policy", type: FILTER, predicates: [{ attribute: "labels.policyIds", operator: EXACTLY_MATCHES, values: [$policyId] }] }
   }) { workflow { id } errors { description } }
