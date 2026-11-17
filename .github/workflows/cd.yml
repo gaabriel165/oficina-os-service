@@ -91,6 +91,7 @@ jobs:
           kustomize edit set image "$SERVICE_NAME=$IMAGE_REPOSITORY:${GITHUB_SHA}"
           cd ../..
           kubectl apply -k k8s/overlays/prod
+          kubectl rollout restart "deployment/$SERVICE_NAME" --namespace "$NAMESPACE"
           kubectl rollout status "deployment/$SERVICE_NAME" --namespace "$NAMESPACE" --timeout=300s
 
       - name: Summary
