@@ -28,7 +28,7 @@ Microsserviço de **ordens de serviço** do Sistema Integrado de Atendimento e E
 - **Swagger:** `/swagger/index.html` em cada serviço (OS `8080`, Billing `8081`, Execution `8082` na execução local)
 - **Collection das APIs (Insomnia):** [`insomnia-collection.json`](./insomnia-collection.json)
 - **Cenários em BDD:** [`saga_ordem_de_servico.feature`](./internal/integration/features/saga_ordem_de_servico.feature)
-- **Vídeos:** [Fase 2](https://youtu.be/KcicodFkWag) · [Fase 3](https://youtu.be/UpkiPBkgyVE)
+- **Vídeos:** [Fase 2](https://youtu.be/KcicodFkWag) · [Fase 3](https://youtu.be/UpkiPBkgyVE) · [Fase 4](https://youtu.be/vCy65AtrTtE)
 
 > O ambiente AWS é provisionado sob demanda e destruído após cada sessão de testes, para não gerar custo. Os endereços de produção podem estar fora do ar no momento da avaliação; o vídeo mostra os pipelines e o ambiente em execução.
 
